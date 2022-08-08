@@ -51,7 +51,7 @@ def uStripSteppedImpFilterGDS(
     else:
       print('The only valid filter types are butter, chebyp5, cheby3 or bessel')
   if order == 2:
-    elif filtType == 'butter':
+    if filtType == 'butter':
       coeffs = [1.4142, 1.4142]
     elif filtType == 'chebyp5':
       coeffs = [1.4029, 0.7071]
