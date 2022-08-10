@@ -151,6 +151,7 @@ def uStripSteppedImpFilterGDS(
       print('The only valid filter types are butter, chebyp5, cheby3 or bessel')
   else:
     print('The only valid filter orders are 1-10')
+
   # design filter sections
   x = 0
   filtElecLength = np.zeros((len(coeffs),1),dtype=float)

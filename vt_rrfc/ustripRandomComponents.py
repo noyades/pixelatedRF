@@ -967,3 +967,40 @@ def randomGDS(sub,
 
 
   return portPos, x_total, y_total, csvFile, gdsFile, cellName
+
+def recreateGDS(pixelSize: int,
+                inF: str):
+
+  lib = gdspy.GdsLibrary()
+
+  # Set the database unit to 1 mil
+  lib.unit = 25.4e-6
+
+  # Create Cell obj
+  cellName = 'DESIGN'
+  gdspy.current_library = gdspy.GdsLibrary() # This line of code has to be here to reset the GDS library on every loop
+  UNIT = lib.new_cell(cellName)
+
+  l_bottom = {"layer": 10, "datatype": 0}
+  l_top = {"layer": 11, "datatype": 0}
+  l_sources = {"layer": 5, "datatype": 0}
+
+  pixMap = np.flipud(np.loadtxt(inF, delimiter=','))
+  rows = np.size(pixMap, 0)
+  cols = np.size(pixMap, 1)
+  print(rows, cols)
+
+  outline = gdspy.Rectangle((0, 0), (cols*pixelSize, rows*pixelSize), **l_bottom)
+  UNIT.add(outline) 
+
+  for x in range(0, cols):
+    for y in range(0, rows):
+      if pixMap[y,x]  == 1:
+        rect = gdspy.Rectangle((0, 0), (pixelSize, pixelSize), **l_top).translate(x*pixelSize,\
+               y*pixelSize)
+        UNIT.add(rect)
+
+  gdsFile = inF.replace('csv', 'gds') 
+  # Export GDS
+  lib.write_gds(gdsFile)
+  gdspy.LayoutViewer(lib) 
