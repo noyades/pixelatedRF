@@ -3,41 +3,46 @@ import math
 import random
 import numpy as np
 import gdspy
-from vt_rrfc import microstrip as ustrip 
+import pya
+from vt_rrfc import * 
 from skimage import measure
+
+class rfc:
+  def __init__(rfc_param, 
+               unit,
+               pixelSize: int,
+               sim: str, 
+               view: bool, 
+               write: bool, 
+               outF: str):
+    """ define the microstrip substrate
+    Args:
+    unit = grid unit of the layout. Set to 1e-6 for um or 25.4e-6 for mil for example
+    pixelSize = size of the randomized pixel
+    seed = random seed number
+    sim = boolean flag on what simulator to assume (this is mainly for port placement and setup)
+    view = boolean flag on whether to view gds (do not use in sim mode)
+    write = boolean flag on whether to write files
+    outF = Output file string
+    """    
+    rfc_param.unit = unit
+    rfc_param.pixelSize = pixelSize
+    rfc_param.write = write
+    rfc_param.sim = sim
+    rfc_param.view = view
+    rfc_param.outF = outF
 
 def uStripSteppedImpFilterGDS(
               sub,
+              rfc,
               filtType: str,
               order: int,
               w_h: int,
               w_l: int,
               Zo_h: float,
               Zo_l: float,
-              pixelSize: int,
-              imp: float,
-              sim: str,
-              view: bool,
-              write: bool,
-              outF: str):
+              imp: float):
 
-  lib = gdspy.GdsLibrary()
-
-  # Set the database unit to 1 mil
-  lib.unit = 25.4e-6
-
-  # Create Cell obj
-  cellName = 'uStripFilter'
-  gdspy.current_library = gdspy.GdsLibrary() # This line of code has to be here to reset the GDS library on every loop
-  UNIT = lib.new_cell(cellName)
-  
-  # Create layer #'s
-  l_port1 = {"layer": 1, "datatype": 0}
-  l_port2 = {"layer": 2, "datatype": 0}
-  l_bottom = {"layer": 10, "datatype": 0}
-  l_top = {"layer": 11, "datatype": 0}
-  l_sources = {"layer": 5, "datatype": 0}
-  
   # Setup filter coefficients
   if order == 1:
     if filtType == 'butter':
@@ -50,7 +55,7 @@ def uStripSteppedImpFilterGDS(
       coeffs = [2.0000]
     else:
       print('The only valid filter types are butter, chebyp5, cheby3 or bessel')
-  if order == 2:
+  elif order == 2:
     if filtType == 'butter':
       coeffs = [1.4142, 1.4142]
     elif filtType == 'chebyp5':
@@ -170,97 +175,178 @@ def uStripSteppedImpFilterGDS(
   y_pixels = np.zeros((len(coeffs),1),dtype=float)
   for filt in filtElecLength:
     if x % 2 == 0:
-      widthSec[x], lengthSec[x] = ustrip.microstrip_calc.synthMicrostrip(sub, Zo_l, filt)
+      widthSec[x], lengthSec[x] = microstrip_calc.synthMicrostrip(sub, Zo_l, filt)
     else:
-      widthSec[x], lengthSec[x] = ustrip.microstrip_calc.synthMicrostrip(sub, Zo_h, filt)
-    y_pixels[x] = np.around(widthSec[x]/pixelSize)
-    x_pixels[x] = np.around(lengthSec[x]/pixelSize)
+      widthSec[x], lengthSec[x] = microstrip_calc.synthMicrostrip(sub, Zo_h, filt)
+    y_pixels[x] = np.around(widthSec[x]/rfc.pixelSize)
+    x_pixels[x] = np.around(lengthSec[x]/rfc.pixelSize)
     x += 1
 
   # Pixel Size
-  width_launch, length_launch = ustrip.microstrip_calc.synthMicrostrip(sub, imp, 30)
-  launch_l_pixels = round(length_launch/pixelSize) # length of the line to connect to structure in number of pixels
-  launch_w_pixels = round(width_launch/pixelSize) # length of the line to connect to structure in number of pixels
-  length_launch = launch_l_pixels*pixelSize
+  width_launch, length_launch = microstrip_calc.synthMicrostrip(sub, imp, 30)
+  launch_l_pixels = round(length_launch/rfc.pixelSize) # length of the line to connect to structure in number of pixels
+  launch_w_pixels = round(width_launch/rfc.pixelSize) # length of the line to connect to structure in number of pixels
+  length_launch = launch_l_pixels*rfc.pixelSize
 
   # Set horizontal and vertical pixel limits
+  # The conditional below pads the structure, but prevents a fair geometric comparison hence, it is being deprecated
   if (2*max(y_pixels) + 1) < launch_w_pixels:
     y_dim = 3*launch_w_pixels
   else:
     y_dim = (2*max(y_pixels) + 1)
   x_dim = (2*launch_l_pixels + sum(x_pixels))
-  x_total = int(x_dim*pixelSize)
-  y_total = int(y_dim*pixelSize)
+  x_total = int(x_dim*rfc.pixelSize)
+  y_total = int(y_dim*rfc.pixelSize)
   portPos = [0, y_total/2, x_total, y_total/2, 0, 0, 0, 0]
-  
-  # Draw outline
-  pixel_map = np.zeros((int(x_dim),int(y_dim)),dtype=int)
-  outline = gdspy.Rectangle((0, 0), (x_total, y_total), **l_bottom)
-  UNIT.add(outline) 
 
-  # Add ports and sources to the gds
-  if sim == 'ADS':
-    port_1 = [(length_launch*0.5, y_total/2 + 1.05*width_launch/2), \
-              (length_launch*0.5, y_total/2 - 1.05*width_launch/2)]
-    poly_1 = gdspy.Polygon(port_1, **l_port1)
-    UNIT.add(poly_1)
-    port_2 = [(x_total - length_launch*0.5, y_total/2 + 1.05*width_launch/2), \
-              (x_total - length_launch*0.5, y_total/2 - 1.05*width_launch/2)]
-    poly_2 = gdspy.Polygon(port_2, **l_port2)
-    UNIT.add(poly_2)
-    source = [(1, y_total/2 + 1.05*width_launch/2), (1, y_total/2 - 1.05*width_launch/2)]
-    poly_3 = gdspy.Polygon(source, **l_sources)
-    UNIT.add(poly_3)
-  elif sim == 'EMX':
-    port_1 = gdspy.Label("p1", (0, y_total/2), "w", layer=11)
-    UNIT.add(port_1)
-    port_2 = gdspy.Label("p2", (x_total, y_total/2), "e", layer=11)
-    UNIT.add(port_2)
-  else:
-    print('You must choose an available simulator')
-    quit()
+  if rfc.sim == 'EMX':
+    ly = pya.Layout()
 
-  # Add launches: assume a rectangle with port 1 = west, 2 = east
-  for x in range(launch_l_pixels):
-    for y in range(launch_w_pixels):
-      launch_1 = gdspy.Rectangle((0, 0), (pixelSize, pixelSize), **l_top).translate(x*pixelSize, \
-               (y+math.ceil(int(y_dim/2))-math.floor(launch_w_pixels/2))*pixelSize)
-      pixel_map[x,y+math.ceil(int(y_dim/2))-math.floor(launch_w_pixels/2)] = 1
-      launch_2 = gdspy.Rectangle((0, 0), (pixelSize, pixelSize), **l_top).translate(x_total - \
-                 length_launch + x*pixelSize, (y+math.ceil(int(y_dim/2)) - \
-                 math.floor(launch_w_pixels/2))*pixelSize)
-      pixel_map[int(x_dim) - launch_l_pixels + x, y+math.ceil(int(y_dim/2)) - \
-                 math.floor(launch_w_pixels/2)] = 1
-      UNIT.add(launch_1)
-      UNIT.add(launch_2)
-    y += 1
-  x += 1
+    # Set the database unit to 1 mil
+    ly.dbu = rfc.unit*1e6
 
-  # Add the filter elements
-  for z in range(len(coeffs)):
-    for x in range(int(x_pixels[z])):
-      for y in range(int(y_pixels[z])):
-        rect = gdspy.Rectangle((0, 0), (pixelSize, pixelSize), **l_top).translate(length_launch + \
-               x*pixelSize + int(sum(x_pixels[0:z])*pixelSize), (y+math.ceil(int(y_dim/2)) - \
-               math.floor(int(y_pixels[z])/2))*pixelSize)
-        pixel_map[launch_l_pixels + x + int(sum(x_pixels[0:z])),y+math.ceil(int(y_dim/2)) - \
-               math.floor(int(y_pixels[z])/2)] = 1
-        UNIT.add(rect)
+    # Create Cell obj
+    cellName = 'uStripFilter'
+    UNIT = ly.create_cell(cellName)
+
+    # Create layer #'s
+    l_top = ly.layer(69, 0) # layer for metal
+    l_bottom = ly.layer(6969, 0) # Ground Layer
+
+    # Draw outline
+    pixel_map = np.zeros((int(x_dim),int(y_dim)),dtype=int)
+    outline = UNIT.shapes(l_bottom).insert( pya.Box(0, 0, x_total, y_total) ) 
+
+    # Add port labels
+    port_1 = UNIT.shapes(l_top).insert( pya.Text('p1', 0, y_total/2) )
+    port_2 = UNIT.shapes(l_top).insert( pya.Text('p2', x_total, y_total/2) )
+
+    # Add launches: assume a rectangle with port 1 = west, 2 = east
+    for x in range(launch_l_pixels):
+      for y in range(launch_w_pixels):
+        launch_1 = pya.Box(0, 0, rfc.pixelSize, rfc.pixelSize).moved(x*rfc.pixelSize, \
+                 (y+math.ceil(int(y_dim/2))-math.floor(launch_w_pixels/2))*rfc.pixelSize)
+        pixel_map[x,y+math.ceil(int(y_dim/2))-math.floor(launch_w_pixels/2)] = 1
+        launch_2 = pya.Box(0, 0, rfc.pixelSize, rfc.pixelSize).moved(x_total - \
+                   length_launch + x*rfc.pixelSize, (y+math.ceil(int(y_dim/2)) - \
+                   math.floor(launch_w_pixels/2))*rfc.pixelSize)
+        pixel_map[int(x_dim) - launch_l_pixels + x, y+math.ceil(int(y_dim/2)) - \
+                  math.floor(launch_w_pixels/2)] = 1
+        UNIT.shapes(l_top).insert(launch_1)
+        UNIT.shapes(l_top).insert(launch_2)
       y += 1
     x += 1
-  z += 1
 
-  if write == True:
-    csvFile = outF + ".csv"
-    # Export Pixel Map file
-    np.savetxt(csvFile, np.transpose(pixel_map), fmt = '%d', delimiter = ",")
-    gdsFile = outF + ".gds"
-    # Export GDS
-    lib.write_gds(gdsFile)
+    # Add the filter elements
+    for z in range(len(coeffs)):
+      for x in range(int(x_pixels[z])):
+        for y in range(int(y_pixels[z])):
+          rect = pya.Box(0, 0, rfc.pixelSize, rfc.pixelSize).moved(length_launch + \
+                 x*rfc.pixelSize + int(sum(x_pixels[0:z])*rfc.pixelSize), (y+math.ceil(int(y_dim/2)) - \
+                 math.floor(int(y_pixels[z])/2))*rfc.pixelSize)
+          pixel_map[launch_l_pixels + x + int(sum(x_pixels[0:z])),y+math.ceil(int(y_dim/2)) - \
+                 math.floor(int(y_pixels[z])/2)] = 1
+          UNIT.shapes(l_top).insert(rect)
+        y += 1
+      x += 1
+    z += 1
+
+    if rfc.write == True:
+      csvFile = rfc.outF + ".csv"
+      # Export Pixel Map file
+      np.savetxt(csvFile, np.transpose(pixel_map), fmt = '%d', delimiter = ",")
+      gdsFile = rfc.outF + ".gds"
+      # Export GDS
+      ly.write(gdsFile)
+    else:
+      csvFile = ''
+      gdsFile = ''
+    if rfc.view == True:
+      # Load a GDSII file into a new library
+      gdsii = gdspy.GdsLibrary(infile=gdsFile)
+      gdspy.LayoutViewer(gdsii)
+
   else:
-    csvFile = ''
-    gdsFile = ''
-  if view == True:
-    gdspy.LayoutViewer(lib) 
+    lib = gdspy.GdsLibrary()
+
+    # Set the database unit to 1 mil
+    lib.unit = rfc.unit
+
+    # Create Cell obj
+    cellName = 'uStripFilter'
+    gdspy.current_library = gdspy.GdsLibrary() # This line of code has to be here to reset the GDS library on every loop
+    UNIT = lib.new_cell(cellName)
+  
+    # Create layer #'s
+    l_port1 = {"layer": 1, "datatype": 0}
+    l_port2 = {"layer": 2, "datatype": 0}
+    l_bottom = {"layer": 10, "datatype": 0}
+    l_top = {"layer": 11, "datatype": 0}
+    l_sources = {"layer": 5, "datatype": 0}
+  
+    # Draw outline
+    pixel_map = np.zeros((int(x_dim),int(y_dim)),dtype=int)
+    outline = gdspy.Rectangle((0, 0), (x_total, y_total), **l_bottom)
+    UNIT.add(outline) 
+
+    # Add ports and sources to the gds
+    if rfc.sim == 'MEEP':
+      port_1 = [(length_launch*0.5, y_total/2 + 1.05*width_launch/2), \
+                (length_launch*0.5, y_total/2 - 1.05*width_launch/2)]
+      poly_1 = gdspy.Polygon(port_1, **l_port1)
+      UNIT.add(poly_1)
+      port_2 = [(x_total - length_launch*0.5, y_total/2 + 1.05*width_launch/2), \
+                (x_total - length_launch*0.5, y_total/2 - 1.05*width_launch/2)]
+      poly_2 = gdspy.Polygon(port_2, **l_port2)
+      UNIT.add(poly_2)
+      source = [(1, y_total/2 + 1.05*width_launch/2), (1, y_total/2 - 1.05*width_launch/2)]
+      poly_3 = gdspy.Polygon(source, **l_sources)
+      UNIT.add(poly_3)
+    else:
+      t = 1 #print('If you are using ADS, you do not need to add ports. They are added with AEL')
+
+
+    # Add launches: assume a rectangle with port 1 = west, 2 = east
+    for x in range(launch_l_pixels):
+      for y in range(launch_w_pixels):
+        launch_1 = gdspy.Rectangle((0, 0), (rfc.pixelSize, rfc.pixelSize), **l_top).translate(x*rfc.pixelSize, \
+                   (y+math.ceil(int(y_dim/2))-math.floor(launch_w_pixels/2))*rfc.pixelSize)
+        pixel_map[x,y+math.ceil(int(y_dim/2))-math.floor(launch_w_pixels/2)] = 1
+        launch_2 = gdspy.Rectangle((0, 0), (rfc.pixelSize, rfc.pixelSize), **l_top).translate(x_total - \
+                   length_launch + x*rfc.pixelSize, (y+math.ceil(int(y_dim/2)) - \
+                   math.floor(launch_w_pixels/2))*rfc.pixelSize)
+        pixel_map[int(x_dim) - launch_l_pixels + x, y+math.ceil(int(y_dim/2)) - \
+                  math.floor(launch_w_pixels/2)] = 1
+        UNIT.add(launch_1)
+        UNIT.add(launch_2)
+      y += 1
+    x += 1
+
+    # Add the filter elements
+    for z in range(len(coeffs)):
+      for x in range(int(x_pixels[z])):
+        for y in range(int(y_pixels[z])):
+          rect = gdspy.Rectangle((0, 0), (rfc.pixelSize, rfc.pixelSize), **l_top).translate(length_launch + \
+                 x*rfc.pixelSize + int(sum(x_pixels[0:z])*rfc.pixelSize), (y+math.ceil(int(y_dim/2)) - \
+                 math.floor(int(y_pixels[z])/2))*rfc.pixelSize)
+          pixel_map[launch_l_pixels + x + int(sum(x_pixels[0:z])),y+math.ceil(int(y_dim/2)) - \
+                 math.floor(int(y_pixels[z])/2)] = 1
+          UNIT.add(rect)
+        y += 1
+      x += 1
+    z += 1
+
+    if rfc.write == True:
+      csvFile = rfc.outF + ".csv"
+      # Export Pixel Map file
+      np.savetxt(csvFile, np.transpose(pixel_map), fmt = '%d', delimiter = ",")
+      gdsFile = rfc.outF + ".gds"
+      # Export GDS
+      lib.write_gds(gdsFile)
+    else:
+      csvFile = ''
+      gdsFile = ''
+    if rfc.view == True:
+      gdspy.LayoutViewer(lib) 
   
   return portPos, x_total, y_total, csvFile, gdsFile, cellName

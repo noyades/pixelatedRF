@@ -1,9 +1,6 @@
 import os
 import time, sys
-from vt_rrfc import microstrip as ustrip
-from vt_rrfc import ustripComponents as usc
-from vt_rrfc import ustripRandomComponents as usrc
-from vt_rrfc import adsAelGeneration as ael
+from vt_rrfc import *
 
 # Load constants and design choices. Assumes 2 layer PCB with 1 oz copper and 19 mil total thickness
 fc = 5.0e9 # Operating center frequency for electrical length calculations 
@@ -16,13 +13,14 @@ h = 30 # height of conductor above substrate
 t_air = 2*(t+h) # thickness of the air above the conductor layer
 er = 4.5 # relative permittivity of the substrate material
 
-sub1 = ustrip.microstrip_sub(t, cond, h, er, fc)
+sub1 = microstrip_sub(t, cond, h, er, fc)
 
 simulator = 'ADS' # This controls the simulation to be used. Right now there are two valid values 'ADS' or 'EMX'
+libName = 'MyFirstWorkspace' # This is the name of the ADS workspace that was created to run sims in
 sym = 'x-axis' # Do you want the random pixels symmetric about 'x-axis' or 'y-axis'
 sim = False # This controls whether a simulation is run or not.
-view = False # This controls if the GDS is viewed after each creation 
-write = True # Control whether output files are written or not
+view = True # This controls if the GDS is viewed after each creation 
+write = False # Control whether output files are written or not
 ports = 2 # For now, code makes either 2, 3 or 4 ports
 sides = 2 # For now, code can put ports on 2, 3 or 4 sides, with constraints that are spelled out in rrfc
 pixelSize = 18 # the size of the randomized pixel in mils. Typically contrained by a PCB manufacturer.
@@ -35,8 +33,8 @@ filtOrder = 3
 max_w = 9	
 min_w = 1
 
-Zo_h, ereff_h = ustrip.microstrip_calc.calcMicrostrip(sub1, min_w*pixelSize, 1000);
-Zo_l, ereff_l = ustrip.microstrip_calc.calcMicrostrip(sub1, max_w*pixelSize, 1000);
+Zo_h, ereff_h = microstrip_calc.calcMicrostrip(sub1, min_w*pixelSize, 1000);
+Zo_l, ereff_l = microstrip_calc.calcMicrostrip(sub1, max_w*pixelSize, 1000);
 w_h = min_w*pixelSize
 w_l = max_w*pixelSize
 print(Zo_h,Zo_l)
@@ -48,9 +46,10 @@ pathName = '/home/jswalling/pythonWork/rrfc/' # Base path for file creation
 # to define the boundaries of the random structures that will be designed and simulated to train an Neural Network.
 os.chdir(pathName)
 outFile = pathName + 'data/' + "steppedImpFilter_pixelSize=" + str(pixelSize) + "_order=" + str(filtOrder) + '_' + filtType
-_, xBoard, yBoard, _, _, _ = usc.uStripSteppedImpFilterGDS(sub1, filtType, filtOrder, \
-                                                     w_h, w_l, Zo_h, Zo_l, pixelSize, z0, \
-                                                     simulator, view, False, outFile)
+rfc1 = rfc(unit=layoutUnit,pixelSize=pixelSize,sim=simulator,\
+        view=view,write=write,outF=outFile)
+_, xBoard, yBoard, _, _, _ = uStripSteppedImpFilterGDS(sub1, rfc1, filtType, filtOrder, \
+                                                     w_h, w_l, Zo_h, Zo_l, z0)
 print(xBoard, yBoard)
 """
 connectMap is a map for connections to be enforced: 1_2 1_3 1_4 2_3 2_4 3_4
@@ -63,14 +62,14 @@ and 3 and ports 2 and 3 as an example
 """
 connectMap = [0, 0, 0, 0, 0, 0]
 
-y = 2019
-for x in range(0,100): # Run 100 iterations of file generation and simulation.
+y = 2607
+for x in range(1000,1001): # Run 100 iterations of file generation and simulation.
   data_file = pathName + 'data/' + "randomGDSSteppedImpFilter_Type=" + filtType + "_order=" \
               + str(filtOrder) + "_pixelSize=" + str(pixelSize) + "_sim=" + str(y)
-  rrfc1 = usrc.rrfc(unit=layoutUnit,ports=ports,sides=sides,connect=connectMap,\
+  rrfc1 = rrfc(unit=layoutUnit,ports=ports,sides=sides,connect=connectMap,\
           pixelSize=pixelSize,seed=x,sim=simulator,view=view,write=write,\
           outF=data_file,sym=sym)
-  portPosition, xBoard, yBoard, csv_file, gds_file, cell = usrc.randomGDS_dim(sub1, \
+  portPosition, xBoard, yBoard, csv_file, gds_file, cell = randomGDS_dim(sub1, \
                                                       rrfc1, xBoard, yBoard, z0)
 
   # checking if files were written. When connectivity is enforced, files are only written for
@@ -90,49 +89,8 @@ for x in range(0,100): # Run 100 iterations of file generation and simulation.
 
   if sim == True:
     # Import GDS into ADS environment and setup environment for simulation
-    libName = 'MyFirstWorkspace'	
-    aelName = 'autoloadEMSim.dem'
-    ael.createOpenAel(pathName, libName, gds_file, ports, portPosition, aelName, cell)
-
-    # An example setup-tools is included in the repository. This is an example of the tool setup
-    # script for CAD tools used by the RFIC group in MICS at Virginia Tech. All that is needed 
-    # for this script is the ADS setup (HPEESOF) which will put ads and adsMomWrapper on the
-    # path and setup the licensing. Future variants of the script will add hooks for EMX simulation    
-    command = 'source /software/RFIC/cadtools/cadence/setups/setup-tools; ads -m ' \
-              + pathName + libName + '_wrk/' + aelName + ' &'
-    os.system(command)
-
-    time.sleep(30)
-    print('We are still working')
-
-    dataSet = "randomGDSSteppedImpFilter_Type=" + filtType + "_order=" + str(filtOrder) + "_pixelSize=" + \
-              str(pixelSize) + "_sim=" + str(y-1)
-    # Run Momentum Simulation
-    os.chdir(pathName + libName + '_wrk/simulation/' + libName + '_lib/' + cell + '/layout/emSetup_MoM/')
-    commands = ['source /software/RFIC/cadtools/cadence/setups/setup-tools',
-                'echo $HPEESOF_DIR',
-                'which adsMomWrapper',
-	        'adsMomWrapper --dsName=' + dataSet + ' --dsDir=' + pathName + 'data/ -O -3D proj proj']
-    command = 'source /software/RFIC/cadtools/cadence/setups/setup-tools; \
-              adsMomWrapper --dsName=' + dataSet + ' --dsDir=' + pathName + 'data/ -O -3D proj proj'
-    os.system(command)
-    
-    # Clean up after Momentum Simulation to prepare for next simulation
-    aelCloseName = 'autoCloseEMSim.dem'
-    ael.createCloseAel(pathName,libName,aelCloseName, cell)
-
-    os.chdir(pathName)
-    commands = ['mv ' + csv_file + ' ' + pathName + '/data/pixelMaps/.',
-	        'mv ' + gds_file + ' ' + pathName + '/data/gds/.',
-	        'source /software/RFIC/cadtools/cadence/setups/setup-tools',
-	        'echo $HPEESOF_DIR',
-	        'ads -m ' + pathName + libName + '_wrk/' + aelCloseName + ' &',
-	        'rm -rf ' + pathName + libName + '_wrk/simulation/*']
-    command = 'mv ' + csv_file + ' ' + pathName + '/data/pixelMaps/.; mv ' + gds_file + ' ' + pathName + '/data/gds/.'
-    os.system(command)
-    command = 'source /software/RFIC/cadtools/cadence/setups/setup-tools; ads -m ' + \
-              pathName + libName + '_wrk/' + aelCloseName + ' &'
-    os.system(command)
-    command = 'rm -rf ' + pathName + libName + '_wrk/simulation/*'
-    os.system(command)
+    em1 = emSim(workingPath = pathName, adsLibName = libName, gdsFile = gds_file,\
+              csvFile = csv_file, numPorts = ports, portPositions = portPosition,\
+              gdsCellName = cell, dataFile = data_file)
+    emSim.momRun(em1)
 
