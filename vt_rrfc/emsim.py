@@ -21,6 +21,18 @@ class emSim:
     self.cell = gdsCellName
     self.dataF = dataFile
   """
+  This code assumes that in your path, you will have an ADS workspace created amd that at 
+  the same level of hierarchy you will have a data folder to collect simulation results 
+  and design results in. The structure should be:
+    ./YOUR_ADS_Workspace_wrk
+    ./data
+    ./data/gds
+    ./data/pixelMaps
+    ./data/spfiles
+    ./data/spfiles/afs
+  This is necessary because of how the simulation environment is created in ADS, and is not
+  necessary for EMX simulations.
+
   WorkingPath --> base path where files will be placed
   adsLibName --> name of the ADS library that the simulation will be loaded. This library 
                  must exist before simulations can be called and run. Working to see if it
@@ -89,7 +101,7 @@ class emSim:
     # Eveything in its right place :)
     command = 'mv ' + self.libName + '_wrk/simulation/' + \
               self.libName + '_lib/' + self.cell + '/layout/emSetup_MoM/proj.afs ' + \
-              'data/spfiles/' + dataSet + \
+              'data/spfiles/afs/' + dataSet + \
               '.afs; mv ' + self.csv_file + ' ' + self.pathName + \
               '/data/pixelMaps/.; mv ' + self.gds_file + ' ' + self.pathName + \
               '/data/gds/.'
@@ -103,6 +115,10 @@ class emSim:
     # the next simulation. All data should have been moved in steps above.
     command = 'rm -rf ' + self.pathName + self.libName + '_wrk/simulation/*'
     os.system(command)
+
+    time.sleep(10)
+    print('Cleaning up!')
+
   
   def emxRun(self):
     # Call EMX Simulation

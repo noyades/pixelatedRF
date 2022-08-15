@@ -5,27 +5,9 @@ import time
 
 class changePixels:
 
-  def __init__(self, 
-               bottom_left_corner_point, 
-               top_right_corner_point, 
-               pixel_x_length, 
-               pixel_y_length, 
-               z_start=-0.11, 
-               z_end=0.11, 
-               group_name = "p", 
-               matrix_mask = None, 
-               relaxing_time = 0):
-    self.left_down_point = tuple_to_point(bottom_left_corner_point)
-    self.right_up_point = tuple_to_point(top_right_corner_point)
-    self.pixel_x_length = pixel_x_length
-    self.pixel_y_length = pixel_y_length
+  def __init__(self, matrix_mask = None, relaxing_time = 0):
     self.__last_array = None
     self.__lastest_array = None
-    self.fdtd_engine = fdtd_engine
-    self.material = material
-    self.z_start = z_start
-    self.z_end = z_end
-    self.group_name = group_name
     self.relaxing_time = relaxing_time
     if (type(matrix_mask) != type(None)):
         self.matrix_mask = np.array(matrix_mask, dtype=np.int32)
@@ -59,7 +41,6 @@ class changePixels:
     if (type(self.__lastest_array) == type(None)):
         self.__lastest_array = np.array(masked_matrix,dtype=np.double)
         self.__last_array = np.array(masked_matrix,dtype=np.double)
-        self.__initialize()
     else:
         self.__lastest_array = np.array(masked_matrix,dtype=np.double)
         self.__diff = self.__lastest_array - self.__last_array

@@ -13,5 +13,6 @@ from vt_rrfc.dbsAlgorithm import dbsAlgo
 from vt_rrfc.pixelTools import changePixels
 from vt_rrfc.adsAelGeneration import *
 from vt_rrfc.emsim import emSim
+from vt_rrfc.citiFileTools import *
 
 
