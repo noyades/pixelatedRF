@@ -17,10 +17,10 @@ sub1 = microstrip_sub(t, cond, h, er, fc)
 
 simulator = 'ADS' # This controls the simulation to be used. Right now there are two valid values 'ADS' or 'EMX'
 libName = 'MyFirstWorkspace' # This is the name of the ADS workspace that was created to run sims in
-sym = 'x-axis' # Do you want the random pixels symmetric about 'x-axis' or 'y-axis'
+sym = 'y-axis' # Do you want the random pixels symmetric about 'x-axis' or 'y-axis'
 sim = False # This controls whether a simulation is run or not.
-view = True # This controls if the GDS is viewed after each creation 
-write = False # Control whether output files are written or not
+view = False # This controls if the GDS is viewed after each creation 
+write = True # Control whether output files are written or not
 ports = 2 # For now, code makes either 2, 3 or 4 ports
 sides = 2 # For now, code can put ports on 2, 3 or 4 sides, with constraints that are spelled out in rrfc
 pixelSize = 18 # the size of the randomized pixel in mils. Typically contrained by a PCB manufacturer.
@@ -47,7 +47,7 @@ pathName = '/home/jswalling/pythonWork/rrfc/' # Base path for file creation
 os.chdir(pathName)
 outFile = pathName + 'data/' + "steppedImpFilter_pixelSize=" + str(pixelSize) + "_order=" + str(filtOrder) + '_' + filtType
 rfc1 = rfc(unit=layoutUnit,pixelSize=pixelSize,sim=simulator,\
-        view=view,write=write,outF=outFile)
+        view=False,write=False,outF=outFile)
 _, xBoard, yBoard, _, _, _ = uStripSteppedImpFilterGDS(sub1, rfc1, filtType, filtOrder, \
                                                      w_h, w_l, Zo_h, Zo_l, z0)
 print(xBoard, yBoard)
@@ -60,10 +60,10 @@ ports and more than one connection can be enforced at a time. connectMap =
 [1, 1, 0, 1, 0, 0] would enforce connections between ports 1 and 2, ports 1 
 and 3 and ports 2 and 3 as an example
 """
-connectMap = [0, 0, 0, 0, 0, 0]
+connectMap = [1, 0, 0, 0, 0, 0]
 
-y = 2607
-for x in range(1000,1001): # Run 100 iterations of file generation and simulation.
+y = 3608
+for x in range(0,100000): # Run 100 iterations of file generation and simulation.
   data_file = pathName + 'data/' + "randomGDSSteppedImpFilter_Type=" + filtType + "_order=" \
               + str(filtOrder) + "_pixelSize=" + str(pixelSize) + "_sim=" + str(y)
   rrfc1 = rrfc(unit=layoutUnit,ports=ports,sides=sides,connect=connectMap,\

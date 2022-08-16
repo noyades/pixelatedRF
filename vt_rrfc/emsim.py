@@ -118,9 +118,8 @@ class emSim:
 
     time.sleep(10)
     print('Cleaning up!')
-
   
-  def emxRun(self):
+  def emxRun(self, procFile):
     # Call EMX Simulation
     
     # An example setup-tools is included in the repository. This is an example of the tool setup

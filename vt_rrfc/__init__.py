@@ -14,5 +14,6 @@ from vt_rrfc.pixelTools import changePixels
 from vt_rrfc.adsAelGeneration import *
 from vt_rrfc.emsim import emSim
 from vt_rrfc.citiFileTools import *
+from vt_rrfc.randomDesigns import randomDesign
 
 

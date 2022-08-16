@@ -173,7 +173,7 @@ class microstrip_calc:
       l = 39370.0787*eLength/360*v/sub.freq # 39370.0787 converts m to mil
       return wx, l
 
-def findConnectivity(arr, pixelSize, ports, portPos):
+def findConnectivity(arr, pixelSize, ports, sides, portPos):
   labeled = measure.label(arr, background=False, connectivity=1)
   if ports == 2:
     c13 = False
