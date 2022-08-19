@@ -48,9 +48,9 @@ os.chdir(pathName)
 outFile = pathName + 'data/' + "steppedImpFilter_pixelSize=" + str(pixelSize) + "_order=" + str(filtOrder) + '_' + filtType
 rfc1 = rfc(unit=layoutUnit,pixelSize=pixelSize,sim=simulator,\
         view=False,write=False,outF=outFile)
-_, xBoard, yBoard, _, _, _ = uStripSteppedImpFilterGDS(sub1, rfc1, filtType, filtOrder, \
+_, xProto, yProto, _, _, _ = uStripSteppedImpFilterGDS(sub1, rfc1, filtType, filtOrder, \
                                                      w_h, w_l, Zo_h, Zo_l, z0)
-print(xBoard, yBoard)
+print(xProto, yProto)
 """
 connectMap is a map for connections to be enforced: 1_2 1_3 1_4 2_3 2_4 3_4
 if any position in array is a 1, files will only be printed if that 
@@ -62,15 +62,15 @@ and 3 and ports 2 and 3 as an example
 """
 connectMap = [1, 0, 0, 0, 0, 0]
 
-y = 3608
-for x in range(0,100000): # Run 100 iterations of file generation and simulation.
+y = 4969
+for x in range(17719,100000): # Run 100 iterations of file generation and simulation.
   data_file = pathName + 'data/' + "randomGDSSteppedImpFilter_Type=" + filtType + "_order=" \
               + str(filtOrder) + "_pixelSize=" + str(pixelSize) + "_sim=" + str(y)
   rrfc1 = rrfc(unit=layoutUnit,ports=ports,sides=sides,connect=connectMap,\
           pixelSize=pixelSize,seed=x,sim=simulator,view=view,write=write,\
           outF=data_file,sym=sym)
   portPosition, xBoard, yBoard, csv_file, gds_file, cell = randomGDS_dim(sub1, \
-                                                      rrfc1, xBoard, yBoard, z0)
+                                                      rrfc1, xProto, yProto, z0)
 
   # checking if files were written. When connectivity is enforced, files are only written for
   # the random seeds that meet the connection criterion. If no file is written, no simulation 
@@ -78,6 +78,7 @@ for x in range(0,100000): # Run 100 iterations of file generation and simulation
   # connections for the forced connectivity ports.
   if csv_file == '':
     sim = False
+    print('Seed=' + str(x) + ' File is empty')
   else:
     y += 1
     print('Seed=' + str(x) + ' File is not empty')

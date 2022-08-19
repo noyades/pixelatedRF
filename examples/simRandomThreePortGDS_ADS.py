@@ -43,10 +43,10 @@ ports and more than one connection can be enforced at a time. connectMap =
 [1, 1, 0, 1, 0, 0] would enforce connections between ports 1 and 2, ports 1 
 and 3 and ports 2 and 3 as an example
 """
-connectMap = [0, 0, 0, 0, 0, 0]
+connectMap = [1, 1, 0, 1, 0, 0]
 
-y = 0
-for x in range(0,1000): # Run 100 iterations of file generation and simulation.
+y = 1294
+for x in range(73580,100000): # Run 100 iterations of file generation and simulation.
   random.seed(x)
   symSelect = random.randint(0, 3)
   if symSelect == 0:

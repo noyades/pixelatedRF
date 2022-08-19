@@ -113,8 +113,8 @@ class microstrip_calc:
     
       lambda_0 = c/sub.freq # wavelength in freespace in m
       lx = 400 # initial length of line in mils
-      wmin = 4 # minimum width of conductor in mils
-      wmax = 200 # maximum width of conductor in mils
+      wmin = 0.04 # minimum width of conductor in mils
+      wmax = 500 # maximum width of conductor in mils
     
       abstol = 1.0e-6
       reltol = 0.1e-6
