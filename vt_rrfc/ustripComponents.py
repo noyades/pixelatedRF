@@ -349,4 +349,4 @@ def uStripSteppedImpFilterGDS(
     if rfc.view == True:
       gdspy.LayoutViewer(lib) 
   
-  return portPos, x_total, y_total, csvFile, gdsFile, cellName
+  return portPos, x_total, y_total, csvFile, gdsFile, cellName, launch_l_pixels

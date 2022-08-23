@@ -1,21 +1,20 @@
 import numpy as np
 import os
 import time, sys
-from vt_rrfc import microstrip as ustrip
-from vt_rrfc import ustripComponents as usc
-from vt_rrfc import ustripRandomComponents as usrc
-from vt_rrfc import adsAelGeneration as ael
+from vt_rrfc import *
 
-fc = 5.6e9
-bw = 120e6
+fc  = 6e9
+fc2 = 2e9
+
 pixelSize = 18 # the size of the randomized pixel in mils. Typically contrained by a PCB manufacturer.
 
 pathName = '/home/jswalling/pythonWork/rrfc/data/designMaps/' # Base path for file creation
-inF = pathName + 'arlaBPF_pixelSize' + str(pixelSize) + '_fc=' + \
-       str(np.round(fc*1e-9,1)) + 'GHz_BW=' + str(int(bw*1e-6)) + 'MHz.csv'
+inF = pathName + 'arlaBPF_pixelSize' + str(pixelSize) + 'notch_fc=' + \
+       str(np.round(fc2*1e-9,1)) + 'GHz_pass_fc=' + str(np.round(fc*1e-9,1)) + 'MHz_v3.csv'
 
+rrfc1 = rfc(pixelSize=pixelSize,outF=inF,unit=25.4e-6,sim=0,view=0,write=0)
 #os.chdir(pathName)
 
-usrc.recreateGDS(pixelSize, inF)
+recreateGDS(rrfc1)
 
 
