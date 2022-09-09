@@ -45,43 +45,66 @@ and 3 and ports 2 and 3 as an example
 """
 connectMap = [1, 1, 0, 1, 0, 0]
 
-y = 1294
-for x in range(73580,100000): # Run 100 iterations of file generation and simulation.
+y = 9673
+for x in range(237252,500000): # Run 100 iterations of file generation and simulation.
   random.seed(x)
   symSelect = random.randint(0, 3)
+  conSelect = random.randint(0, 4)
   if symSelect == 0:
     sym = 'x-axis'
+    if conSelect == 0:
+      connectMap = [0, 0, 0, 0, 0, 0]
+    elif conSelect == 1:
+      connectMap = [0, 1, 0, 0, 0, 0]
+    elif conSelect == 2:
+      connectMap = [0, 0, 0, 1, 0, 0]
+    elif conSelect == 3:
+      connectMap = [1, 0, 0, 0, 0, 0]
+    else: # conSelect == 4:
+      connectMap = [1, 1, 0, 1, 0, 0]
   elif symSelect == 1:
     sym = 'y-axis'
+    if conSelect == 0:
+      connectMap = [0, 0, 0, 0, 0, 0]
+    elif conSelect == 1:
+      connectMap = [0, 1, 0, 0, 0, 0]
+    elif conSelect == 2:
+      connectMap = [0, 0, 0, 1, 0, 0]
+    elif conSelect == 3:
+      connectMap = [1, 0, 0, 0, 0, 0]
+    else: # conSelect == 4:
+      connectMap = [1, 1, 0, 1, 0, 0]
   elif symSelect == 2:
     sym = 'xy-axis'
+    if conSelect == 0:
+      connectMap = [0, 0, 0, 0, 0, 0]
+    elif conSelect == 1:
+      connectMap = [0, 1, 0, 0, 0, 0]
+    elif conSelect == 2:
+      connectMap = [0, 0, 0, 1, 0, 0]
+    elif conSelect == 3:
+      connectMap = [1, 0, 0, 0, 0, 0]
+    else: # conSelect == 4:
+      connectMap = [1, 1, 0, 1, 0, 0]
   else:
     sym = 'asym'
-  """
-  conSelect = random.randint(0,7)
-  if conSelect == 0:
-    connectMap = [0, 0, 0, 0, 0, 0]
-  elif conSelect == 1:
-    connectMap = [0, 0, 1, 0, 0, 0]
-  elif conSelect == 2:
-    connectMap = [0, 1, 0, 0, 0, 0]
-  elif conSelect == 3:
-    connectMap = [0, 1, 1, 0, 0, 0]
-  elif conSelect == 4:
-    connectMap = [1, 0, 0, 0, 0, 0]
-  elif conSelect == 5:
-    connectMap = [1, 0, 1, 0, 0, 0]
-  elif conSelect == 6:
-    connectMap = [1, 1, 0, 0, 0, 0]
-  else:
-    connectMap = [1, 1, 1, 0, 0, 0]
-  """
+    if conSelect == 0:
+      connectMap = [0, 0, 0, 0, 0, 0]
+    elif conSelect == 1:
+      connectMap = [0, 1, 0, 0, 0, 0]
+    elif conSelect == 2:
+      connectMap = [0, 0, 0, 1, 0, 0]
+    elif conSelect == 3:
+      connectMap = [1, 0, 0, 0, 0, 0]
+    else: # conSelect == 4:
+      connectMap = [1, 1, 0, 1, 0, 0]
+
   data_file = pathName + 'data/' + "randomGDSThreePort_450x270" + "_pixelSize=" +\
               str(pixelSize) + "_sim=" + str(y)
   rrfc1 = rrfc(unit=layoutUnit,ports=ports,sides=sides,connect=connectMap,\
           pixelSize=pixelSize,seed=x,sim=simulator,view=view,write=write,\
           outF=data_file,sym=sym)
-  portPosition, xBoard, yBoard, csv_file, gds_file, cell = randomGDS_dim(sub1, \
+  portPosition, xBoard, yBoard, csv_file, gds_file, cell, _ = randomGDS_dim(sub1, \
                                                     rrfc1, xRect, yRect, z0)
 
   # checking if files were written. When connectivity is enforced, files are only written for
@@ -96,7 +119,7 @@ for x in range(73580,100000): # Run 100 iterations of file generation and simula
     sim = True
     fileList = pathName + 'seedList_threePort_450x270.txt'
     f = open(fileList, 'a+')
-    f.write(str(x) + ' ' + sym + ' connect=0' + '\n')
+    f.write(str(x) + ' ' + sym + ' connect=' + str(conSelect) + ' \n')
     f.close
 
   if sim == True:

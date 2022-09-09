@@ -48,8 +48,10 @@ os.chdir(pathName)
 outFile = pathName + 'data/' + "steppedImpFilter_pixelSize=" + str(pixelSize) + "_order=" + str(filtOrder) + '_' + filtType
 rfc1 = rfc(unit=layoutUnit,pixelSize=pixelSize,sim=simulator,\
         view=False,write=False,outF=outFile)
-_, xProto, yProto, _, _, _ = uStripSteppedImpFilterGDS(sub1, rfc1, filtType, filtOrder, \
+_, xProto, yProto, _, _, _, launch_l_pixels = uStripSteppedImpFilterGDS(sub1, rfc1, filtType, filtOrder, \
                                                      w_h, w_l, Zo_h, Zo_l, z0)
+
+xProto = xProto - 2*launch_l_pixels*pixelSize #temporarily adjust for launch will add patch 
 print(xProto, yProto)
 """
 connectMap is a map for connections to be enforced: 1_2 1_3 1_4 2_3 2_4 3_4
@@ -62,14 +64,42 @@ and 3 and ports 2 and 3 as an example
 """
 connectMap = [1, 0, 0, 0, 0, 0]
 
-y = 4969
-for x in range(17719,100000): # Run 100 iterations of file generation and simulation.
+y = 13632
+for x in range(75460,100000): # Run 100 iterations of file generation and simulation.
+  random.seed(x)
+  symSelect = random.randint(0, 3)
+  conSelect = random.randint(0, 1)
+  if symSelect == 0:
+    sym = 'x-axis'
+    if conSelect == 0:
+      connectMap = [0, 0, 0, 0, 0, 0]
+    else:
+      connectMap = [1, 0, 0, 0, 0, 0]
+  elif symSelect == 1:
+    sym = 'y-axis'
+    if conSelect == 0:
+      connectMap = [0, 0, 0, 0, 0, 0]
+    else:
+      connectMap = [1, 0, 0, 0, 0, 0]
+  elif symSelect == 2:
+    sym = 'xy-axis'
+    if conSelect == 0:
+      connectMap = [0, 0, 0, 0, 0, 0]
+    else:
+      connectMap = [1, 0, 0, 0, 0, 0]
+  else:
+    sym = 'asym'
+    if conSelect == 0:
+      connectMap = [0, 0, 0, 0, 0, 0]
+    else:
+      connectMap = [1, 0, 0, 0, 0, 0]
+
   data_file = pathName + 'data/' + "randomGDSSteppedImpFilter_Type=" + filtType + "_order=" \
               + str(filtOrder) + "_pixelSize=" + str(pixelSize) + "_sim=" + str(y)
   rrfc1 = rrfc(unit=layoutUnit,ports=ports,sides=sides,connect=connectMap,\
           pixelSize=pixelSize,seed=x,sim=simulator,view=view,write=write,\
           outF=data_file,sym=sym)
-  portPosition, xBoard, yBoard, csv_file, gds_file, cell = randomGDS_dim(sub1, \
+  portPosition, xBoard, yBoard, csv_file, gds_file, cell, _ = randomGDS_dim(sub1, \
                                                       rrfc1, xProto, yProto, z0)
 
   # checking if files were written. When connectivity is enforced, files are only written for
@@ -85,7 +115,7 @@ for x in range(17719,100000): # Run 100 iterations of file generation and simula
     sim = True
     fileList = pathName + 'seedList.txt'
     f = open(fileList, 'a+')
-    f.write(str(x)+' '+ sym+ '\n')
+    f.write(str(x) + ' ' + sym + ' connect=' + str(conSelect) + '\n')
     f.close
 
   if sim == True:
