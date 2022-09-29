@@ -190,10 +190,13 @@ def uStripSteppedImpFilterGDS(
 
   # Set horizontal and vertical pixel limits
   # The conditional below pads the structure, but prevents a fair geometric comparison hence, it is being deprecated
+  """
   if (2*max(y_pixels) + 1) < launch_w_pixels:
     y_dim = 3*launch_w_pixels
   else:
     y_dim = (2*max(y_pixels) + 1)
+  """
+  y_dim = max(y_pixels)
   x_dim = (2*launch_l_pixels + sum(x_pixels))
   x_total = int(x_dim*rfc.pixelSize)
   y_total = int(y_dim*rfc.pixelSize)
