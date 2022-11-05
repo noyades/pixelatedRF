@@ -73,7 +73,7 @@ class emSim:
     # to ensure that the import is fully done before starting the sim (can probably be 
     # shortened. Will later look to just add feature to only proceed when the execution 
     # above is complete
-    time.sleep(30)
+    time.sleep(90)
     print('We are still working')
 
     dataSet = self.dataF.replace(self.pathName + 'data/','') 

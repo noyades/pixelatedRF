@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import csv
 import math
 import random
@@ -12,7 +13,8 @@ class rrfc:
   def __init__(rrfc_param, 
                unit,
                ports: int, 
-               sides: int, 
+               sides: int,
+               corner: str, 
                connect,
                pixelSize: int,
                seed: int, 
@@ -26,6 +28,7 @@ class rrfc:
     unit = grid unit of the layout. Set to 1e-6 for um or 25.4e-6 for mil for example
     ports = number of ports
     sides = the number of sides ports are placed on
+    corner = how the corner connection is realize for simulation 
     sym = whether to force symmetry about 'x-axis' or 'y-axis'. Leave empty for no symmetry 
     pixelSize = size of the randomized pixel
     seed = random seed number
@@ -59,6 +62,7 @@ class rrfc:
     """    
     rrfc_param.unit = unit
     rrfc_param.ports = ports
+    rrfc_param.corner = corner 
     rrfc_param.sides = sides
     rrfc_param.sym = sym
     rrfc_param.pixelSize = pixelSize
@@ -98,10 +102,10 @@ def randomGDS_dim(
   # Set horizontal and vertical pixel limits
   y_pixels = math.ceil(y_dim/rrfc.pixelSize) 
   x_pixels = math.ceil(x_dim/rrfc.pixelSize)
-  if y_pixels % 2 == 0:
+  if y_pixels % 2 == 0 and launch_l_pixels % 2 !=0:
     y_pixels += 1
-  if x_pixels % 2 == 0:
-    x_pixels += 1
+  #if x_pixels % 2 == 0:
+  #  x_pixels += 1
 
   rd1 = randomDesign(rrfc.unit, x_pixels, y_pixels, rrfc.ports,\
                     rrfc.sides, launch_l_pixels, launch_w_pixels, rrfc.pixelSize,rrfc.sim,rrfc.sym,rrfc.seed)
@@ -135,12 +139,30 @@ def randomGDS_dim(
     cols = np.size(pixMap, 1)
     #print(rows, cols)
 
+    print(pixMap)
     for x in range(0, cols):
       for y in range(0, rows):
         if pixMap[y,x]  == 1:
           rect = pya.Box(0, 0, rrfc.pixelSize, rrfc.pixelSize).moved(x*rrfc.pixelSize,\
                  y*rrfc.pixelSize)
           UNIT.shapes(l_top).insert(rect)
+
+    if rrfc.corner == 'overlap':
+      points = [pya.DPoint(0, rrfc.pixelSize/10),
+                pya.DPoint(rrfc.pixelSize/10, 0),
+                pya.DPoint(0, -rrfc.pixelSize/10),
+                pya.DPoint(-rrfc.pixelSize/10, 0)]
+      for x in range(0,cols-1):
+        for y in range(0,rows-1):
+          if pixMap[y,x] == 1 and pixMap[y+1,x+1] == 1:
+            diam = pya.DPolygon(points).moved((x+1)*rrfc.pixelSize,(y+1)*rrfc.pixelSize)
+            UNIT.shapes(l_top).insert(diam)
+
+      for x in range(1,cols):
+        for y in range(0,rows-1):
+          if pixMap[y,x] == 1 and pixMap[y+1,x-1] == 1:
+            diam = pya.DPolygon(points).moved((x)*rrfc.pixelSize,(y+1)*rrfc.pixelSize)
+            UNIT.shapes(l_top).insert(diam)
 
     if rrfc.ports == 2:
       port_1 = UNIT.shapes(l_top).insert( pya.Text('p1', portPos[0], portPos[1]) )
@@ -234,11 +256,6 @@ def randomGDS_dim(
         UNIT.add(poly4)
         UNIT.add(poly5)
 
-    # Draw outline
-    #pixel_map = np.zeros((int(x_total/rrfc.pixelSize),int(y_total/rrfc.pixelSize)),dtype=int)
-    outline = gdspy.Rectangle((0, 0), (x_total, y_total), **l_bottom)
-    UNIT.add(outline) 
-
     pixel_map = randomDesign.addLaunch(rd1,x_total,y_total,pixel_map)
 
     pixel_map = randomDesign.randomPixRect(rd1, x_dim, y_dim, pixel_map)
@@ -254,6 +271,33 @@ def randomGDS_dim(
           rect = gdspy.Rectangle((0, 0), (rrfc.pixelSize, rrfc.pixelSize), **l_top).translate(x*rrfc.pixelSize,\
                  y*rrfc.pixelSize)
           UNIT.add(rect)
+
+    if rrfc.corner == 'overlap':
+      for x in range(0,cols-1):
+        for y in range(0,rows-1):
+          if pixMap[y,x] == 1 and pixMap[y+1,x+1] == 1:
+            diam = gdspy.Rectangle((-0.707*rrfc.pixelSize/10, -0.707*rrfc.pixelSize/10), \
+                                   (0.707*rrfc.pixelSize/10, 0.707*rrfc.pixelSize/10), **l_top).rotate(np.pi/4).\
+                                   translate((x+1)*rrfc.pixelSize,(y+1)*rrfc.pixelSize)
+            UNIT.add(diam)
+      
+      for x in range(1,cols):
+        for y in range(0,rows-1):
+          if pixMap[y,x] == 1 and pixMap[y+1,x-1] == 1:
+            diam = gdspy.Rectangle((-0.707*rrfc.pixelSize/10, -0.707*rrfc.pixelSize/10), \
+                                   (0.707*rrfc.pixelSize/10, 0.707*rrfc.pixelSize/10), **l_top).rotate(np.pi/4).\
+                                   translate((x)*rrfc.pixelSize,(y+1)*rrfc.pixelSize)
+            UNIT.add(diam)
+      
+
+    #joined = gdspy.boolean(UNIT,None,'or')
+    #joined.fillet(0.25)
+    #UNIT.add(joined)
+
+    # Draw outline
+    #pixel_map = np.zeros((int(x_total/rrfc.pixelSize),int(y_total/rrfc.pixelSize)),dtype=int)
+    outline = gdspy.Rectangle((0, 0), (x_total, y_total), **l_bottom)
+    UNIT.add(outline) 
 
     c12, c13, c14, c23, c24, c34 = findConnectivity(pixel_map, rrfc.pixelSize,\
                                    rrfc.ports, rrfc.sides, portPos)
@@ -276,7 +320,7 @@ def randomGDS_dim(
 
   return portPos, x_total, y_total, csvFile, gdsFile, cellName, launch_l_pixels
 
-def recreateGDS(rrfc):
+def recreateGDS_file(rrfc):
 
   lib = gdspy.GdsLibrary()
 
@@ -292,7 +336,65 @@ def recreateGDS(rrfc):
   l_top = {"layer": 11, "datatype": 0}
   l_sources = {"layer": 5, "datatype": 0}
 
+  #print(rrfc.outF) #debug
   pixMap = np.flipud(np.loadtxt(rrfc.outF, delimiter=','))
+  rows = np.size(pixMap, 0)
+  cols = np.size(pixMap, 1)
+  #print(rows, cols) #debug
+
+  outline = gdspy.Rectangle((0, 0), (cols*rrfc.pixelSize, rows*rrfc.pixelSize), **l_bottom)
+  UNIT.add(outline) 
+
+  for x in range(0, cols):
+    for y in range(0, rows):
+      if pixMap[y,x]  == 1:
+        rect = gdspy.Rectangle((0, 0), (rrfc.pixelSize, rrfc.pixelSize), **l_top).translate(x*rrfc.pixelSize,\
+               y*rrfc.pixelSize)
+        UNIT.add(rect)
+
+    # These sections are added to mimic overlap that is left in fabrication at corner joints between pixels due 
+    # to underetch or finite rotational tool dimensions on a CNC milling machine.
+    if rrfc.corner == 'overlap':
+      for x in range(0,cols-1):
+        for y in range(0,rows-1):
+          if pixMap[y,x] == 1 and pixMap[y+1,x+1] == 1:
+            diam = gdspy.Rectangle((-0.707*rrfc.pixelSize/10, -0.707*rrfc.pixelSize/10), \
+                                   (0.707*rrfc.pixelSize/10, 0.707*rrfc.pixelSize/10), **l_top).rotate(np.pi/4).\
+                                   translate((x+1)*rrfc.pixelSize,(y+1)*rrfc.pixelSize)
+            UNIT.add(diam)
+      
+      for x in range(1,cols):
+        for y in range(0,rows-1):
+          if pixMap[y,x] == 1 and pixMap[y+1,x-1] == 1:
+            diam = gdspy.Rectangle((-0.707*rrfc.pixelSize/10, -0.707*rrfc.pixelSize/10), \
+                                   (0.707*rrfc.pixelSize/10, 0.707*rrfc.pixelSize/10), **l_top).rotate(np.pi/4).\
+                                   translate((x)*rrfc.pixelSize,(y+1)*rrfc.pixelSize)
+            UNIT.add(diam)
+
+  gdsFile = rrfc.outF.replace('csv', 'gds') 
+  #print(gdsFile) #debug
+  if rrfc.view == True:
+    gdspy.LayoutViewer(lib) 
+  # Export GDS
+  lib.write_gds(gdsFile)
+  return cellName
+
+def recreateGDS_array(rrfc,pixMap):
+
+  lib = gdspy.GdsLibrary()
+
+  # Set the database unit to 1 mil
+  lib.unit = rrfc.unit
+
+  # Create Cell obj
+  cellName = 'INVDESIGN'
+  gdspy.current_library = gdspy.GdsLibrary() # This line of code has to be here to reset the GDS library on every loop
+  UNIT = lib.new_cell(cellName)
+
+  l_bottom = {"layer": 10, "datatype": 0}
+  l_top = {"layer": 11, "datatype": 0}
+  l_sources = {"layer": 5, "datatype": 0}
+
   rows = np.size(pixMap, 0)
   cols = np.size(pixMap, 1)
   print(rows, cols)
@@ -306,6 +408,25 @@ def recreateGDS(rrfc):
         rect = gdspy.Rectangle((0, 0), (rrfc.pixelSize, rrfc.pixelSize), **l_top).translate(x*rrfc.pixelSize,\
                y*rrfc.pixelSize)
         UNIT.add(rect)
+
+    # These sections are added to mimic overlap that is left in fabrication at corner joints between pixels due 
+    # to underetch or finite rotational tool dimensions on a CNC milling machine.
+    if rrfc.corner == 'overlap':
+      for x in range(0,cols-1):
+        for y in range(0,rows-1):
+          if pixMap[y,x] == 1 and pixMap[y+1,x+1] == 1:
+            diam = gdspy.Rectangle((-0.707*rrfc.pixelSize/10, -0.707*rrfc.pixelSize/10), \
+                                   (0.707*rrfc.pixelSize/10, 0.707*rrfc.pixelSize/10), **l_top).rotate(np.pi/4).\
+                                   translate((x+1)*rrfc.pixelSize,(y+1)*rrfc.pixelSize)
+            UNIT.add(diam)
+      
+      for x in range(1,cols):
+        for y in range(0,rows-1):
+          if pixMap[y,x] == 1 and pixMap[y+1,x-1] == 1:
+            diam = gdspy.Rectangle((-0.707*rrfc.pixelSize/10, -0.707*rrfc.pixelSize/10), \
+                                   (0.707*rrfc.pixelSize/10, 0.707*rrfc.pixelSize/10), **l_top).rotate(np.pi/4).\
+                                   translate((x)*rrfc.pixelSize,(y+1)*rrfc.pixelSize)
+            UNIT.add(diam)
 
   gdsFile = rrfc.outF.replace('csv', 'gds') 
   print(gdsFile)

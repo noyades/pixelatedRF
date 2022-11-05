@@ -254,6 +254,25 @@ def uStripSteppedImpFilterGDS(
       x += 1
     z += 1
 
+    """
+    if rfc.corner == 'overlap':
+      points = [pya.DPoint(0, rrfc.pixelSize/10),
+                pya.DPoint(rrfc.pixelSize/10, 0),
+                pya.DPoint(0, -rrfc.pixelSize/10),
+                pya.DPoint(-rrfc.pixelSize/10, 0)]
+      for x in range(0,cols-1):
+        for y in range(0,rows-1):
+          if pixMap[y,x] == 1 and pixMap[y+1,x+1] == 1:
+            diam = pya.DPolygon(points).moved((x+1)*rrfc.pixelSize,(y+1)*rrfc.pixelSize)
+            UNIT.shapes(l_top).insert(diam)
+
+      for x in range(1,cols):
+        for y in range(0,rows-1):
+          if pixMap[y,x] == 1 and pixMap[y+1,x-1] == 1:
+            diam = pya.DPolygon(points).moved((x)*rrfc.pixelSize,(y+1)*rrfc.pixelSize)
+            UNIT.shapes(l_top).insert(diam)
+    """
+
     if rfc.write == True:
       csvFile = rfc.outF + ".csv"
       # Export Pixel Map file
@@ -339,6 +358,25 @@ def uStripSteppedImpFilterGDS(
       x += 1
     z += 1
 
+    """
+    if rfc.corner == 'overlap':
+      for x in range(0,cols-1):
+        for y in range(0,rows-1):
+          if pixMap[y,x] == 1 and pixMap[y+1,x+1] == 1:
+            diam = gdspy.Rectangle((-0.707*rrfc.pixelSize/10, -0.707*rrfc.pixelSize/10), \
+                                   (0.707*rrfc.pixelSize/10, 0.707*rrfc.pixelSize/10), **l_top).rotate(np.pi/4).\
+                                   translate((x+1)*rrfc.pixelSize,(y+1)*rrfc.pixelSize)
+            UNIT.add(diam)
+      
+      for x in range(1,cols):
+        for y in range(0,rows-1):
+          if pixMap[y,x] == 1 and pixMap[y+1,x-1] == 1:
+            diam = gdspy.Rectangle((-0.707*rrfc.pixelSize/10, -0.707*rrfc.pixelSize/10), \
+                                   (0.707*rrfc.pixelSize/10, 0.707*rrfc.pixelSize/10), **l_top).rotate(np.pi/4).\
+                                   translate((x)*rrfc.pixelSize,(y+1)*rrfc.pixelSize)
+            UNIT.add(diam)
+    """
+
     if rfc.write == True:
       csvFile = rfc.outF + ".csv"
       # Export Pixel Map file
@@ -352,4 +390,217 @@ def uStripSteppedImpFilterGDS(
     if rfc.view == True:
       gdspy.LayoutViewer(lib) 
   
+  return portPos, x_total, y_total, csvFile, gdsFile, cellName, launch_l_pixels
+
+def uStripTeeJunctionGDS(
+              sub,
+              rfc,
+              x_pixels: float,
+              y_pixels: float,
+              imp: float):
+
+  # Pixel Size
+  width_launch, length_launch = microstrip_calc.synthMicrostrip(sub, imp, 30)
+  launch_l_pixels = round(length_launch/rfc.pixelSize) # length of the line to connect to structure in number of pixels
+  launch_w_pixels = round(width_launch/rfc.pixelSize) # length of the line to connect to structure in number of pixels
+  length_launch = launch_l_pixels*rfc.pixelSize
+
+  # Set horizontal and vertical pixel limits
+  # The conditional below pads the structure, but prevents a fair geometric comparison hence, it is being deprecated
+  y_dim = y_pixels + launch_l_pixels
+  x_dim = (2*launch_l_pixels + x_pixels)
+  x_total = int(x_dim*rfc.pixelSize)
+  y_total = int(y_dim*rfc.pixelSize)
+  portPos = [0, (y_total-length_launch)/2, x_total, (y_total-length_launch)/2, x_total/2, y_total, 0, 0]
+
+  if rfc.sim == 'EMX':
+    ly = pya.Layout()
+
+    # Set the database unit to 1 mil
+    ly.dbu = rfc.unit*1e6
+
+    # Create Cell obj
+    cellName = 'uStripTee'
+    UNIT = ly.create_cell(cellName)
+
+    # Create layer #'s
+    l_top = ly.layer(69, 0) # layer for metal
+    l_bottom = ly.layer(6969, 0) # Ground Layer
+
+    # Draw outline
+    pixel_map = np.zeros((int(x_dim),int(y_dim)),dtype=int)
+    outline = UNIT.shapes(l_bottom).insert( pya.Box(0, 0, x_total, y_total) ) 
+
+    # Add port labels
+    port_1 = UNIT.shapes(l_top).insert( pya.Text('p1', 0, (y_total-length_launch)/2) )
+    port_2 = UNIT.shapes(l_top).insert( pya.Text('p2', x_total, (y_total-length_launch)/2) )
+    port_3 = UNIT.shapes(l_top).insert( pya.Text('p3', x_total/2, y_total) )
+
+    # Add the filter elements
+    widthSec, lengthSec = microstrip_calc.synthMicrostrip(sub, imp, 90)
+    tee_w_pixels = round(widthSec/rfc.pixelSize)
+    tee_l_pixels = int(lengthSec/rfc.pixelSize)
+    for x in range(tee_l_pixels):
+      for y in range(tee_w_pixels):
+        rect1 = pya.Box(0, 0, rfc.pixelSize, rfc.pixelSize).moved(length_launch + \
+               x*rfc.pixelSize, (y+math.ceil(int((y_dim-launch_l_pixels)/2))-math.floor(launch_w_pixels/2))*rfc.pixelSize)
+        pixel_map[launch_l_pixels + x,(y+math.ceil(int((y_dim-launch_l_pixels)/2))-math.floor(launch_w_pixels/2))] = 1
+        UNIT.shapes(l_top).insert(rect1)
+      y += 1
+    x += 1
+
+    for x in range(tee_w_pixels):
+      for y in range(int((y_pixels - tee_w_pixels)/2)):
+        rect2 = pya.Box(0, 0, rfc.pixelSize, rfc.pixelSize).moved((x+math.ceil(int(x_dim/2)) - \
+                   math.floor(launch_w_pixels/2))*rfc.pixelSize, (y+math.ceil(int((y_dim-launch_l_pixels)/2)) + \
+                   math.floor(launch_w_pixels/2)+1)*rfc.pixelSize)
+        pixel_map[(x+math.ceil(int(x_dim/2)) - math.floor(launch_w_pixels/2)),(y+math.ceil(int((y_dim-launch_l_pixels)/2)) + \
+                   math.floor(launch_w_pixels/2)+1)] = 1
+        UNIT.shapes(l_top).insert(rect2)
+      y += 1
+    x += 1
+
+    # Add launches: assume a rectangle with port 1 = west, 2 = east, 3 = north
+    for x in range(launch_l_pixels):
+      for y in range(launch_w_pixels):
+        launch_1 = pya.Box(0, 0, rfc.pixelSize, rfc.pixelSize).moved(x*rfc.pixelSize, \
+                 (y+math.ceil(int((y_dim-launch_l_pixels)/2))-math.floor(launch_w_pixels/2))*rfc.pixelSize)
+        pixel_map[x,y+math.ceil(int((y_dim-launch_l_pixels)/2))-math.floor(launch_w_pixels/2)] = 1
+        launch_2 = pya.Box(0, 0, rfc.pixelSize, rfc.pixelSize).moved(x_total - \
+                   length_launch + x*rfc.pixelSize, (y+math.ceil(int((y_dim-launch_l_pixels)/2)) - \
+                   math.floor(launch_w_pixels/2))*rfc.pixelSize)
+        pixel_map[int(x_dim) - launch_l_pixels + x, y+math.ceil(int((y_dim-launch_l_pixels)/2)) - \
+                  math.floor(launch_w_pixels/2)] = 1
+        launch_3 = pya.Box(0, 0, rfc.pixelSize, rfc.pixelSize).moved((y+math.ceil(int(x_dim/2)) - \
+                   math.floor(launch_w_pixels/2))*rfc.pixelSize, y_total - \
+                   length_launch + x*rfc.pixelSize)
+        pixel_map[(y+math.ceil(int(x_dim/2)) - \
+                   math.floor(launch_w_pixels/2)), y_dim - launch_l_pixels + x] = 1
+        UNIT.shapes(l_top).insert(launch_1)
+        UNIT.shapes(l_top).insert(launch_2)
+        UNIT.shapes(l_top).insert(launch_3)
+      y += 1
+    x += 1
+
+    print(rfc.write)
+    if rfc.write == True:
+      csvFile = rfc.outF + ".csv"
+
+      # Export Pixel Map file
+      np.savetxt(csvFile, np.flipud(np.transpose(pixel_map)), fmt = '%d', delimiter = ",")
+      gdsFile = rfc.outF + ".gds"
+      # Export GDS
+      ly.write(gdsFile)
+    else:
+      csvFile = ''
+      gdsFile = ''
+    if rfc.view == True:
+      # Load a GDSII file into a new library
+      gdsii = gdspy.GdsLibrary(infile=gdsFile)
+      gdspy.LayoutViewer(gdsii)
+
+  else:
+    lib = gdspy.GdsLibrary()
+
+    # Set the database unit to 1 mil
+    lib.unit = rfc.unit
+
+    # Create Cell obj
+    cellName = 'uStripTee'
+    gdspy.current_library = gdspy.GdsLibrary() # This line of code has to be here to reset the GDS library on every loop
+    UNIT = lib.new_cell(cellName)
+  
+    # Create layer #'s
+    l_port1 = {"layer": 1, "datatype": 0}
+    l_port2 = {"layer": 2, "datatype": 0}
+    l_port3 = {"layer": 3, "datatype": 0}
+    l_bottom = {"layer": 10, "datatype": 0}
+    l_top = {"layer": 11, "datatype": 0}
+    l_sources = {"layer": 5, "datatype": 0}
+  
+    # Draw outline
+    pixel_map = np.zeros((int(x_dim),int(y_dim)),dtype=int)
+    outline = gdspy.Rectangle((0, 0), (x_total, y_total), **l_bottom)
+    UNIT.add(outline)
+
+    # Add ports and sources to the gds
+    if rfc.sim == 'MEEP':
+      port_1 = [(length_launch*0.5, (y_total - length_launch)/2 + 1.05*width_launch/2), \
+                (length_launch*0.5, (y_total - length_launch)/2 - 1.05*width_launch/2)]
+      poly_1 = gdspy.Polygon(port_1, **l_port1)
+      UNIT.add(poly_1)
+      port_2 = [(x_total - length_launch*0.5, (y_total - length_launch)/2 + 1.05*width_launch/2), \
+                (x_total - length_launch*0.5, (y_total - length_launch)/2 - 1.05*width_launch/2)]
+      poly_2 = gdspy.Polygon(port_2, **l_port2)
+      UNIT.add(poly_2)
+      port_3 = [(x_total/2 + 1.05*width_launch/2, y_total - length_launch*0.5), \
+                (x_total/2 - 1.05*width_launch/2, y_total - length_launch*0.5)]
+      poly_3 = gdspy.Polygon(port_3, **l_port3)
+      UNIT.add(poly_3)
+      source = [(1, (y_total - length_launch)/2 + 1.05*width_launch/2), \
+                (1, (y_total - length_launch)/2 - 1.05*width_launch/2)]
+      poly_4 = gdspy.Polygon(source, **l_sources)
+      UNIT.add(poly_4)
+    else:
+      t = 1 #print('If you are using ADS, you do not need to add ports. They are added with AEL')
+
+    # Add the filter elements
+    widthSec, lengthSec = microstrip_calc.synthMicrostrip(sub, imp, 90)
+    tee_w_pixels = round(widthSec/rfc.pixelSize)
+    tee_l_pixels = int(lengthSec/rfc.pixelSize)
+    for x in range(tee_l_pixels):
+      for y in range(tee_w_pixels):
+        rect = gdspy.Rectangle((0, 0), (rfc.pixelSize, rfc.pixelSize), **l_top).translate(length_launch + \
+               x*rfc.pixelSize, (y+math.ceil(int((y_dim-launch_l_pixels)/2))-math.floor(launch_w_pixels/2))*rfc.pixelSize)
+        pixel_map[launch_l_pixels + x,(y+math.ceil(int((y_dim-launch_l_pixels)/2))-math.floor(launch_w_pixels/2))] = 1
+        UNIT.add(rect)
+      y += 1
+    x += 1
+
+    for x in range(tee_w_pixels):
+      for y in range(int((y_pixels - tee_w_pixels)/2)):
+        rect = gdspy.Rectangle((0, 0), (rfc.pixelSize, rfc.pixelSize), **l_top).translate((x+math.ceil(int(x_dim/2)) - \
+                   math.floor(launch_w_pixels/2))*rfc.pixelSize, (y+math.ceil(int((y_dim-launch_l_pixels)/2)) + \
+                   math.floor(launch_w_pixels/2)+1)*rfc.pixelSize)
+        pixel_map[(x+math.ceil(int(x_dim/2)) - math.floor(launch_w_pixels/2)),(y+math.ceil(int((y_dim-launch_l_pixels)/2)) + \
+                   math.floor(launch_w_pixels/2)+1)] = 1
+        UNIT.add(rect)
+      y += 1
+    x += 1
+
+    # Add launches: assume a rectangle with port 1 = west, 2 = east
+    for x in range(launch_l_pixels):
+      for y in range(launch_w_pixels):
+        launch_1 = gdspy.Rectangle((0, 0), (rfc.pixelSize, rfc.pixelSize), **l_top).translate(x*rfc.pixelSize, \
+                 (y+math.ceil(int((y_dim-launch_l_pixels)/2))-math.floor(launch_w_pixels/2))*rfc.pixelSize)
+        pixel_map[x,y+math.ceil(int((y_dim-launch_l_pixels)/2))-math.floor(launch_w_pixels/2)] = 1
+        launch_2 = gdspy.Rectangle((0, 0), (rfc.pixelSize, rfc.pixelSize), **l_top).translate(x_total - \
+                   length_launch + x*rfc.pixelSize, (y+math.ceil(int((y_dim-launch_l_pixels)/2)) - \
+                   math.floor(launch_w_pixels/2))*rfc.pixelSize)
+        pixel_map[int(x_dim) - launch_l_pixels + x, y+math.ceil(int((y_dim-launch_l_pixels)/2)) - \
+                  math.floor(launch_w_pixels/2)] = 1
+        launch_3 = gdspy.Rectangle((0, 0), (rfc.pixelSize, rfc.pixelSize), **l_top).translate((y+math.ceil(int(x_dim/2)) - \
+                   math.floor(launch_w_pixels/2))*rfc.pixelSize, y_total - \
+                   length_launch + x*rfc.pixelSize)
+        pixel_map[(y+math.ceil(int(x_dim/2)) - \
+                   math.floor(launch_w_pixels/2)), y_dim - launch_l_pixels + x] = 1
+        UNIT.add(launch_1)
+        UNIT.add(launch_2)
+        UNIT.add(launch_3)
+      y += 1
+    x += 1
+
+    if rfc.write == True:
+      csvFile = rfc.outF + ".csv"
+      # Export Pixel Map file
+      np.savetxt(csvFile, np.flipud(np.transpose(pixel_map)), fmt = '%d', delimiter = ",")
+      gdsFile = rfc.outF + ".gds"
+      # Export GDS
+      lib.write_gds(gdsFile)
+    else:
+      csvFile = ''
+      gdsFile = ''
+    if rfc.view == True:
+      gdspy.LayoutViewer(lib) 
+
   return portPos, x_total, y_total, csvFile, gdsFile, cellName, launch_l_pixels
