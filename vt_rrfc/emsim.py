@@ -121,20 +121,32 @@ class emSim:
   
   def emxRun(self, procFile):
     # Call EMX Simulation
-    
+
+    if self.ports == 2:
+      emsPorts = '-p P000=p1 -p P001=p2 -i P000 -i P001 '
+    elif self.ports == 3:
+      emsPorts = '-p P000=p1 -p P001=p2 -p P002=p3 -i P000 -i P001 -i P002 '
+    elif self.ports == 4:
+      emsPorts - '-p P000=p1 -p P001=p2 -p P002=p3 -p P003=p4 -i P000 -i P001 -i P002 -i P003 '
+    else:
+      print('Only 2, 3, or 4 ports are currently supported')
+
     # An example setup-tools is included in the repository. This is an example of the tool setup
     # script for CAD tools used by the RFIC group in MICS at Virginia Tech. All that is needed 
     # for this script is the EMX setup which will put emx on the path. You also need a
     # pointer to the proc file you are using.     
-    command = 'source /software/RFIC/cadtools/cadence/setups/setup-tools; emx --edge-width=2 ' \
-              + self.gds_file + ' RANDOM ' + procFile + ' --verbose=3 --touchstone -s ' \
-              + self.dataF + '.s2p --sweep 0 30e9 --key=EMXkey --max-memory=60' \
-              + ' --include-command-line --include-port-order'
+    command = 'source /software/RFIC/cadtools/cadence/setups/setup-tools; emx ' \
+              + self.gds_file + ' RANDOM ' + procFile + ' -e 0.2 -t 0.2 -v 0.2 --3d=* ' \
+              + emsPorts + '--sweep 0 1e+10 --sweep-stepsize 1e+08 --verbose=3 --print-command-line -l ' \
+              + '2 --dump-connectivity --quasistatic --dump-connectivity ' \
+              + '--parallel=10 --simultaneous-frequencies=0 --recommended-memory ' \
+              + '--key=EMXkey --format=touchstone -s ' + self.dataF + '.s2p'
+
     os.system(command)
 
     # Clean up after sim
     os.chdir(self.pathName)
     command = 'mv ' + self.csv_file + ' ' + self.pathName + '/data/pixelMaps/.; mv ' + \
-              self.gds_file + ' ' + self.pathName + '/data/gds/.; mv ' + self.data_file + \
+              self.gds_file + ' ' + self.pathName + '/data/gds/.; mv ' + self.dataF + \
               '.s2p ' + self.pathName + '/data/spfiles/.'
     os.system(command)

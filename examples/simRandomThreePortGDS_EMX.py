@@ -4,36 +4,40 @@ import random
 from vt_rrfc import *
 
 # Load constants and design choices. Assumes 2 layer PCB with 1 oz copper and 19 mil total thickness
-fc = 15.0e9 # Operating center frequency for electrical length calculations 
+fc = 60.0e9 # Operating center frequency for electrical length calculations 
            # (make this smaller than or equal to the desired operating frequency
 z0 = 50 # Desired characteristic impedance of launches
 EL = 90 # Desired unit of electrical length in degrees
-t = 0.1114 # Thickness of conductor in mils
-cond = 3.21e7 # Conductivity of the conductors (S/m)
-h = 27.823 # height of conductor above substrate
+t = 0.129921 # Thickness of conductor (OI, 22nm) in mils
+cond = 5.71e7 # Conductivity of the conductors (S/m)
+h = 0.143511 # height of conductor above substrate (assumes dielectric between M1 and OI in 22nm Stack)
 t_air = 2*(t+h) # thickness of the air above the conductor layer
-er = 11.83 # relative permittivity of the substrate material
+er = 3.93 # relative permittivity of the substrate material (assumes dielectric between M1 and OI in 22nm Stack)
 
 sub1 = microstrip_sub(t, cond, h, er, fc)
 
 simulator = 'EMX' # This controls the simulation to be used. Right now there are two valid values 'ADS' or 'EMX'
 sym = 'xy-axis' # Do you want the random pixels symmetric about 'x-axis' or 'y-axis'
 sim = False # This controls whether a simulation is run or not.
-view = True # This controls if the GDS is viewed after each creation 
+view = False # This controls if the GDS is viewed after each creation 
 write = True # Control whether output files are written or not
 ports = 3 # For now, code makes either 2, 3 or 4 ports
 sides = 2 # For now, code can put ports on 2, 3 or 4 sides, with constraints that are spelled out in rrfc
-pixelSize = 5 # the size of the randomized pixel in mils. Typically contrained by a PCB manufacturer.
-layoutUnit = 1e-6 # Set the layout unit to mils
+corner = 'overlap'
+scale = 10
+pixelSize = scale*5 # the size of the randomized pixel in mils. Typically contrained by IC PDK.
+minPixel = scale*2 # the size of the smallest pixel/space between pixels
+layoutRes = scale*25.4 # Transmission line calculators are in mils, so since the target here is um, 25.4 converts to um
+layoutUnit = 25.4e-6/layoutRes # Set the layout unit to microns/layout resolution
 
-w_l, l_l = microstrip_calc.synthMicrostrip(sub1, z0, 120);
+w_l, l_l = microstrip_calc.synthMicrostrip(sub1, z0, 5);
 
-print(w_l,l_l)
+print(25.4*w_l,25.4*l_l)
 
-procFile = '/software/RFIC/PDK/globalFoundries/22FDX-EXT/release/Emagnetic/EMX/10M_2Mx_4Cx_2Bx_2Jx_LBthick/22fdsoi_10M_2Mx_4Cx_2Bx_2Jx_LBthick_nominal_detailed.encrypted.proc'
+procFile = '/software/RFIC/PDK/globalFoundries/22FDX-EXT/release/Emagnetic/EMX/9M_2Mx_5Cx_1Jx_1Ox_LBthick/22fdsoi_9M_2Mx_5Cx_1Jx_1Ox_LBthick_nominal_detailed.encrypted.proc'
 pathName = '/home/jswalling/pythonWork/rrfc/3port_emx/' # Base path for file creation
 
-xRect, yRect = 20*pixelSize, 15*pixelSize
+xRect, yRect = 10*pixelSize, 11*pixelSize
 """
 connectMap is a map for connections to be enforced: 1_2 1_3 1_4 2_3 2_4 3_4
 if any position in array is a 1, files will only be printed if that 
@@ -46,7 +50,7 @@ and 3 and ports 2 and 3 as an example
 connectMap = [0, 0, 0, 0, 0, 0]
 
 y = 0
-for x in range(0,10): # Run 100 iterations of file generation and simulation.
+for x in range(0,1000): # Run 100 iterations of file generation and simulation.
   random.seed(x)
   symSelect = random.randint(0, 3)
   if symSelect == 0:
@@ -78,10 +82,11 @@ for x in range(0,10): # Run 100 iterations of file generation and simulation.
   """
   data_file = pathName + 'data/' + "randomGDSThreePort_450x270" + "_pixelSize=" +\
               str(pixelSize) + "_emx_sim=" + str(y)
-  rrfc1 = rrfc(unit=layoutUnit,ports=ports,sides=sides,connect=connectMap,\
-          pixelSize=pixelSize,seed=x,sim=simulator,view=view,write=write,\
-          outF=data_file,sym=sym)
-  portPosition, xBoard, yBoard, csv_file, gds_file, cell = randomGDS_dim(sub1, \
+  rrfc1 = rrfc(unit=layoutUnit,ports=ports,sides=sides,corner=corner,\
+               connect=connectMap,minPix=minPixel,pixelSize=pixelSize,\
+               layoutRes=layoutRes,launchLen=5,seed=x,sim=simulator,view=view,\
+               write=write,outF=data_file,sym=sym)
+  portPosition, xBoard, yBoard, csv_file, gds_file, cell, _ = randomGDS_dim(sub1, \
                                                     rrfc1, xRect, yRect, z0)
 
   # checking if files were written. When connectivity is enforced, files are only written for
