@@ -8,9 +8,12 @@ from vt_rrfc import *
 from skimage import measure
 
 class rfc:
-  def __init__(rfc_param, 
+  def __init__(self, 
                unit,
+               corner: str, 
                pixelSize: int,
+               layoutRes: int,
+               scale: int,
                sim: str, 
                view: bool, 
                write: bool, 
@@ -18,6 +21,7 @@ class rfc:
     """ define the microstrip substrate
     Args:
     unit = grid unit of the layout. Set to 1e-6 for um or 25.4e-6 for mil for example
+    corner = how the corner connection is realize for simulation 
     pixelSize = size of the randomized pixel
     seed = random seed number
     sim = boolean flag on what simulator to assume (this is mainly for port placement and setup)
@@ -25,12 +29,270 @@ class rfc:
     write = boolean flag on whether to write files
     outF = Output file string
     """    
-    rfc_param.unit = unit
-    rfc_param.pixelSize = pixelSize
-    rfc_param.write = write
-    rfc_param.sim = sim
-    rfc_param.view = view
-    rfc_param.outF = outF
+    self.unit = unit
+    self.corner = corner
+    self.pixelSize = pixelSize
+    self.layoutRes = layoutRes
+    self.scale = scale
+    self.write = write
+    self.sim = sim
+    self.view = view
+    self.outF = outF
+
+def uStripQuadHybridGDS(
+              self,
+              sub,
+              imp: float):
+
+  # This code draws the following structure with 6 sections of 15 deg, 70.7Ohm TL in horzontal (x)
+  # and 6 sections of 15 deg, 50Ohm TL in vertical (y). It also adds pixels for ports (p)
+  # 0000000000000000000000000000000
+  # 1pp|xxx|xxx|xxx|xxx|xxx|xxx|pp3
+  # 000|y00|000|000|000|000|00y|000
+  # 000|y00|000|000|000|000|00y|000
+  # 000|yyy|000|000|000|000|yyy|000
+  # 000|00y|000|000|000|000|y00|000
+  # 000|00y|000|000|000|000|y00|000
+  # 000|00y|000|000|000|000|y00|000
+  # 000|00y|000|000|000|000|y00|000
+  # 000|yyy|000|000|000|000|yyy|000
+  # 000|y00|000|000|000|000|00y|000
+  # 000|y00|000|000|000|000|00y|000
+  # 2pp|xxx|xxx|xxx|xxx|xxx|xxx|pp4
+  # 0000000000000000000000000000000
+
+  mil2um = self.layoutRes/self.scale
+  # Calculate the width and length of the sections of the TLs in the coupler
+  width_ref, length_ref = microstrip_calc.synthMicrostrip(sub, imp, 30)
+  width_Zo, length_Zo = microstrip_calc.synthMicrostrip(sub, imp, 5)
+  width_Zl, length_Zl = microstrip_calc.synthMicrostrip(sub, imp/np.sqrt(2), 5)
+  numHorSections = np.around(length_ref/length_Zl)
+  numVerSections = np.around(length_ref/length_Zo)
+  hor_x_pixels = round(self.scale*length_Zl*mil2um/self.pixelSize)
+  hor_y_pixels = round(self.scale*width_Zl*mil2um/self.pixelSize)
+  ver_x_pixels = round(self.scale*width_Zo*mil2um/self.pixelSize)
+  ver_y_pixels = round(self.scale*length_Zo*mil2um/self.pixelSize)
+
+  # Calculate Port Dimenstions
+  width_launch, length_launch = microstrip_calc.synthMicrostrip(sub, imp, 5)
+  launch_x_pixels = round(self.scale*length_launch*mil2um/self.pixelSize) # length of the line to connect to structure in number of pixels
+  launch_y_pixels = round(self.scale*width_launch*mil2um/self.pixelSize) # length of the line to connect to structure in number of pixels
+  length_launch = launch_x_pixels*self.pixelSize/self.scale
+
+  # Set horizontal and vertical pixel limits
+  # The conditional below pads the structure, but prevents a fair geometric comparison hence, it is being deprecated
+  # Assume that with six sections, the vertical paths bend twice (as shown above)
+  buf_pixels = 3 #number of rows of pixels to be added to top and bottom of design
+  y_pixels = (numVerSections-2)*ver_y_pixels + (numVerSections - 4)*(ver_x_pixels) + 2*buf_pixels
+  x_pixels = 2*launch_x_pixels + numHorSections*hor_x_pixels
+  x_total = x_pixels*self.pixelSize/self.scale
+  y_total = y_pixels*self.pixelSize/self.scale
+  y_lower = (buf_pixels + hor_y_pixels/2)*self.pixelSize/self.scale
+  y_upper = (y_pixels - (buf_pixels + hor_y_pixels/2))*self.pixelSize/self.scale
+  portPos = [0, y_upper, 0, y_lower, x_total, y_upper, x_total, y_lower]
+ 
+  pixMap = np.zeros((int(x_pixels),int(y_pixels)),dtype=int)
+  # Add launches: assume a rectangle with port 1 = NorthWest
+  for x in range(launch_x_pixels):
+    for y in range(launch_y_pixels):
+      pixMap[x,int(y_pixels-buf_pixels-y-1)] = 1
+    y += 1
+  x += 1
+  # Add launches: assume a rectangle with port 2 = SouthWest
+  for x in range(launch_x_pixels):
+    for y in range(launch_y_pixels):
+      pixMap[x,int(buf_pixels+y)] = 1
+    y += 1
+  x += 1
+  # Add launches: assume a rectangle with port 3 = NorthEast
+  for x in range(launch_x_pixels):
+    for y in range(launch_y_pixels):
+      pixMap[int(x_pixels-x-1),int(y_pixels-buf_pixels-y-1)] = 1
+    y += 1
+  x += 1
+  # Add launches: assume a rectangle with port 4 = SouthWest
+  for x in range(launch_x_pixels):
+    for y in range(launch_y_pixels):
+      pixMap[int(x_pixels-x-1),int(buf_pixels+y)] = 1
+    y += 1
+  x += 1
+  # Add the connection between ports 1 and 3 (Zo/sqrt2)
+  for z in range(int(numHorSections)):
+    for x in range(hor_x_pixels):
+      for y in range(hor_y_pixels):
+        pixMap[int(z*hor_x_pixels+launch_x_pixels+x),int(y_pixels-buf_pixels-y-1)] = 1
+      y += 1
+    x += 1
+  z += 1
+  # Add the connection between ports 2 and 4 (Zo/sqrt2)
+  for z in range(int(numHorSections)):
+    for x in range(hor_x_pixels):
+      for y in range(hor_y_pixels):
+        pixMap[int(z*hor_x_pixels+launch_x_pixels+x),int(buf_pixels+y)] = 1
+      y += 1
+    x += 1
+  z += 1
+  # Add the connection between ports 1 and 2 (Zo)
+  # Add one vertical sections from port 1
+  for z in range(1):
+    for x in range(ver_x_pixels):
+      for y in range(ver_y_pixels):
+        pixMap[int(launch_x_pixels+x),int(buf_pixels+y+z*ver_y_pixels)] = 1
+      y += 1
+    x += 1
+  z += 1
+  # Add one horizontal section to end of last section
+  for z in range(1):
+    for x in range(ver_y_pixels):
+      for y in range(ver_x_pixels):
+        pixMap[int(launch_x_pixels+x),int(buf_pixels+y+(z+1)*ver_y_pixels)] = 1
+      y += 1
+    x += 1
+  z += 1
+  # Add two vertical sections from port end of last section
+  for z in range(2):
+    for x in range(ver_x_pixels):
+      for y in range(ver_y_pixels):
+        pixMap[int(launch_x_pixels+x+ver_y_pixels),int(buf_pixels+y+(z+1)*ver_y_pixels)] = 1
+      y += 1
+    x += 1
+  z += 1
+  # Add one horizontal section to end of last section
+  for z in range(1):
+    for x in range(ver_y_pixels):
+      for y in range(ver_x_pixels):
+        pixMap[int(launch_x_pixels+x),int(buf_pixels+y+(z+3)*ver_y_pixels-ver_x_pixels)] = 1
+      y += 1
+    x += 1
+  z += 1
+  # Add one vertical sections from end of last section to port 2
+  for z in range(1):
+    for x in range(ver_x_pixels):
+      for y in range(ver_y_pixels):
+        pixMap[int(launch_x_pixels+x),int(buf_pixels+y+(z+3)*ver_y_pixels)] = 1
+      y += 1
+    x += 1
+  z += 1
+  # Add the connection between ports 3 and 4 (Zo)
+  # Add one vertical sections from port 3
+  for z in range(1):
+    for x in range(ver_x_pixels):
+      for y in range(ver_y_pixels):
+        pixMap[int(x_pixels-launch_x_pixels-x-1),int(buf_pixels+y+z*ver_y_pixels)] = 1
+      y += 1
+    x += 1
+  z += 1
+  # Add one horizontal section to end of last section
+  for z in range(1):
+    for x in range(ver_y_pixels):
+      for y in range(ver_x_pixels):
+        pixMap[int(x_pixels-launch_x_pixels-x-1),int(buf_pixels+y+(z+1)*ver_y_pixels)] = 1
+      y += 1
+    x += 1
+  z += 1
+  # Add two vertical sections from port end of last section
+  for z in range(2):
+    for x in range(ver_x_pixels):
+      for y in range(ver_y_pixels):
+        pixMap[int(x_pixels-launch_x_pixels-x-ver_y_pixels-1),int(buf_pixels+y+(z+1)*ver_y_pixels)] = 1
+      y += 1
+    x += 1
+  z += 1
+  # Add one horizontal section to end of last section
+  for z in range(1):
+    for x in range(ver_y_pixels):
+      for y in range(ver_x_pixels):
+        pixMap[int(x_pixels-launch_x_pixels-x-1),int(buf_pixels+y+(z+3)*ver_y_pixels-ver_x_pixels)] = 1
+      y += 1
+    x += 1
+  z += 1
+  # Add one vertical sections from end of last section to port 3
+  for z in range(1):
+    for x in range(ver_x_pixels):
+      for y in range(ver_y_pixels):
+        pixMap[int(x_pixels-launch_x_pixels-x-1),int(buf_pixels+y+(z+3)*ver_y_pixels)] = 1
+      y += 1
+    x += 1
+  z += 1
+
+  cellName = 'quadHybrid'
+  
+  pixMap = np.flipud(np.transpose(pixMap))
+  rows = np.size(pixMap, 0)
+  cols = np.size(pixMap, 1)
+
+  if self.sim == 'EMX':
+    ly = pya.Layout()
+
+    # Set the database unit to 1 um. Generally for EMX it is easier to work in um.
+    ly.dbu = self.unit*1e6
+
+    # Create Cell obj
+    UNIT = ly.create_cell(cellName)
+
+    # Create layer #'s
+    l_top = ly.layer(59, 0) # layer for signal metal, corresponds to OI in FDX process
+    l_bottom = ly.layer(15, 0) # Ground Layer corresponds to M1 in FDX process
+
+    # Draw outline
+    # pixelMap = np.zeros((int(x_total/rrfc.pixelSize),int(y_total/rrfc.pixelSize)),dtype=int)
+    # Make a mesh shield
+    # Assume ground hash is 0.5um strip followed by 1um space
+    for x in range(0, int(self.scale*y_total/self.pixelSize)):
+      rect = UNIT.shapes(l_bottom).insert( pya.Box(0, 0, x_total*self.scale, self.scale).moved(0,(x+0.5)*self.pixelSize-0.5*self.scale))
+    for x in range(0, int(self.scale*x_total/self.pixelSize)):
+      rect = UNIT.shapes(l_bottom).insert( pya.Box(0, 0, self.scale, y_total*self.scale).moved((x+0.5)*self.pixelSize-0.5*self.scale,0))
+
+  if self.corner == 'overlap':
+      for x in range(0, cols):
+        for y in range(0, rows):
+          if pixMap[y,x]  == 1:
+            rect = pya.Box(0, 0, self.pixelSize, self.pixelSize).moved(x*self.pixelSize,\
+                   y*self.pixelSize)
+            UNIT.shapes(l_top).insert(rect)
+      
+      points = [pya.DPoint(-self.pixelSize/(10*self.scale), 0),
+                pya.DPoint(0, self.pixelSize/(10*self.scale)),
+                pya.DPoint(self.pixelSize/(10*self.scale), 0),
+                pya.DPoint(0,-self.pixelSize/(10*self.scale))]
+      for x in range(0,cols-1):
+        for y in range(0,rows-1):
+          if pixMap[y,x] == 1 and pixMap[y+1,x+1] == 1:
+            diam = pya.DPolygon(points).moved((x+1)*self.pixelSize/self.scale,(y+1)*self.pixelSize/self.scale)
+            UNIT.shapes(l_top).insert(diam)
+      
+      for x in range(1,cols):
+        for y in range(0,rows-1):
+          if pixMap[y,x] == 1 and pixMap[y+1,x-1] == 1:
+            diam = pya.DPolygon(points).moved((x)*self.pixelSize/self.scale,(y+1)*self.pixelSize/self.scale)
+            UNIT.shapes(l_top).insert(diam)
+
+      port_1 = UNIT.shapes(l_top).insert( pya.Text('p1', self.scale*portPos[0], self.scale*portPos[1]+self.pixelSize/(2)) )
+      port_2 = UNIT.shapes(l_top).insert( pya.Text('p2', self.scale*portPos[2], self.scale*portPos[3]-self.pixelSize/(2)) )
+      port_3 = UNIT.shapes(l_top).insert( pya.Text('p3', self.scale*portPos[4], self.scale*portPos[5]+self.pixelSize/(2)) )
+      port_4 = UNIT.shapes(l_top).insert( pya.Text('p4', self.scale*portPos[6], self.scale*portPos[7]-self.pixelSize/(2)) )
+      port_5 = UNIT.shapes(l_bottom).insert( pya.Text('p5', self.scale*portPos[0], self.scale*portPos[1]+self.pixelSize/(2)) ) # Ground Port
+      port_6 = UNIT.shapes(l_bottom).insert( pya.Text('p6', self.scale*portPos[2], self.scale*portPos[3]-self.pixelSize/(2)) ) # Ground Port
+      port_7 = UNIT.shapes(l_bottom).insert( pya.Text('p7', self.scale*portPos[4], self.scale*portPos[5]+self.pixelSize/(2)) ) # Ground Port
+      port_8 = UNIT.shapes(l_bottom).insert( pya.Text('p8', self.scale*portPos[6], self.scale*portPos[7]-self.pixelSize/(2)) ) # Ground Port
+
+  if self.write == True:
+    csvFile = self.outF + ".csv"
+    # Export Pixel Map file
+    np.savetxt(csvFile, pixMap, fmt = '%d', delimiter = ",")
+    # Export GDS
+    gdsFile = self.outF + ".gds"
+    ly.write(gdsFile)
+  else:
+    csvFile = ''
+    gdsFile = ''
+  # View GDS      
+  if self.view == True and gdsFile != '':
+    # Load a GDSII file into a new library
+    gdsii = gdspy.GdsLibrary(infile=gdsFile)
+    gdspy.LayoutViewer(gdsii)
+ 
+  return portPos, x_total, y_total, csvFile, gdsFile, cellName, launch_x_pixels
 
 def uStripSteppedImpFilterGDS(
               sub,

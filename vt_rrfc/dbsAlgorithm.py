@@ -45,9 +45,11 @@ class pixOps:
 
 class dbsAlgo:
 
-  def __init__(self,loS,cost_function,simulPositions = 5,max_iteration = 3,callback_function = None,initial_solution = None):
+  def __init__(self,loS,cost_function,rows,symmetry,simulPositions = 5,max_iteration = 3,callback_function = None,initial_solution = None):
     self.loS = loS
     self.cost_function = cost_function
+    self.rows = rows
+    self.sym = symmetry
     self.max_iteration = max_iteration
     self.sim_positions = simulPositions
 
@@ -84,25 +86,48 @@ class dbsAlgo:
       self.__undisturbed = np.array(range(0, self.loS))
       for i in range(0,self.loS,self.sim_positions):
         if self.__undisturbed.size <= 1:
-          self.__iter += 1
+          #self.__iter += 1
           break
         else:
           temp_solution = self.__Sol.copy()
-          print(i,self.__undisturbed.size)
-          for j in range(0,self.sim_positions):
-            perturbate_shuffle = np.random.randint(0,self.__undisturbed.size)
-            perturbate_position = self.__undisturbed[perturbate_shuffle]
-            temp_solution[:,perturbate_position] = int((temp_solution[:,perturbate_position] + 1)%2)
-            if (i+j != self.loS -1):
-              self.__undisturbed = np.delete(self.__undisturbed,perturbate_shuffle)
-          new_cost = self.cost_function(temp_solution)
-          print(i,j,self.__undisturbed.size)
-          if (new_cost <= self.cost):
-            self.__Sol = temp_solution
-            self.cost = new_cost
-            self.best_solution = self.__Sol
+          print('sim=' + str(i) + ' Positions remaining=' + str(self.__undisturbed.size))
+          if self.sym == 'x-axis':
+          # for structures that require symmetry about the x-axis (e.g., vertical symmetry), this routine will find and flip 
+          # a mirror symmetric pixel in that plane.
+            cols = int(self.loS / self.rows)
+            print('Pixels=' + str(self.loS) + ' Rows=' + str(self.rows) + ' Cols=' + str(cols))
+            temp_solution = temp_solution.reshape(self.rows,cols)
+            self.__undisturbed = np.array(range(0,int(np.ceil(self.rows/2)*cols))) #only need half the pixels 
+            for j in range(0,self.sim_positions):
+              perturbate_shuffle = np.random.randint(0,self.__undisturbed.size) 
+              perturbate_position = self.__undisturbed[perturbate_shuffle] 
+              temp_solution[int(perturbate_position/cols),perturbate_position%cols] = \
+                   int((temp_solution[int(perturbate_position/cols),perturbate_position%cols] + 1)%2) 
+              temp_solution[self.rows - int(perturbate_position/cols)-1,perturbate_position%cols] = \
+                   int((temp_solution[self.rows - int(perturbate_position/cols)-1,perturbate_position%cols] + 1)%2) 
+              perturbate_position = self.loS - self.__undisturbed[perturbate_shuffle]
+            temp_solution = temp_solution.reshape(self.loS,1)
+            new_cost = self.cost_function(temp_solution)
+            print('sim=' + str(i) + ' Simult. Positions' + str(j) + ' Positions remaining=' + str(self.__undisturbed.size))
+            if (new_cost <= self.cost):
+              self.__Sol = temp_solution
+              self.cost = new_cost
+              self.best_solution = self.__Sol
+          else:
+            for j in range(0,self.sim_positions):
+              perturbate_shuffle = np.random.randint(0,self.__undisturbed.size)
+              perturbate_position = self.__undisturbed[perturbate_shuffle]
+              temp_solution[:,perturbate_position] = int((temp_solution[:,perturbate_position] + 1)%2)
+              if (i+j != self.loS -1):
+                self.__undisturbed = np.delete(self.__undisturbed,perturbate_shuffle)
+            new_cost = self.cost_function(temp_solution)
+            print('sim=' + str(i) + ' Simult. Positions' + str(j) + ' Positions remaining=' + str(self.__undisturbed.size))
+            if (new_cost <= self.cost):
+              self.__Sol = temp_solution
+              self.cost = new_cost
+              self.best_solution = self.__Sol
 
-          print(int((self.__iter * self.loS + i)/self.sim_positions))
+          print('sim=' + str(int((self.__iter * self.loS + i)/self.sim_positions)))
           self.cg_curve[int((self.__iter * self.loS + i)/self.sim_positions)] = self.cost
           self.call_back()
       
@@ -186,8 +211,8 @@ class bpsAlgo:
     ratio_global : Float
         Ratio for social-cognition (default: 0.8).
     """
-    def __init__(self, noS , loS, cost_function , max_iteration = 500,callback_function=None , v_max = 6, \
-                 inertia_weight = 0.99, c_1 = 2, c_2 = 2, ratio_personal = 0.2, ratio_global = 0.8):
+    def __init__(self, noS , loS, cost_function , max_iteration = 500, callback_function=None, initial_solution = None, \
+                 v_max = 6, inertia_weight = 0.99, c_1 = 2, c_2 = 2, ratio_personal = 0.2, ratio_global = 0.8):
         self.max_iteration = max_iteration
         self.noS = noS
         self.loS = loS
@@ -198,7 +223,11 @@ class bpsAlgo:
         self.ratio_personal = ratio_personal
         self.ratio_global = ratio_global
         self.cost_function = cost_function
-        self.__Sol = np.random.randint(0,2,size=(noS,loS)) # Initialize the solutions
+        #self.__Sol = np.random.randint(0,2,size=(noS,loS)) # Initialize the solutions
+        if (type(initial_solution) != type(None)):
+          self.__Sol = np.concatenate((initial_solution, np.random.randint(0, 2, size=(noS-1,loS))),0)
+        else:
+          self.__Sol = np.random.randint(0, 2, size=(noS,loS))
         self.__Best_Sol = self.__Sol.copy()
         self.__v = np.zeros((noS,loS))
         self.cg_curve = np.zeros((max_iteration))

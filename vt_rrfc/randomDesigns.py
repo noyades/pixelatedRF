@@ -77,8 +77,22 @@ class randomDesign:
     #self.connect = connect
     random.seed(seed)
 
+  # For random designs, this function adds ports at fixed locations, depending on the number of ports
   def genPortPos(self):
-    if self.ports == 2:
+    if self.ports == 0:
+      # This is for a portless random grid like a metasurface unit cell.
+      x_total = (self.x_pixels+2)*self.pixelSize
+      y_total = (self.y_pixels+2)*self.pixelSize
+      #Define the position of the ports for BEM simulators. This is a one column array with:
+      #[port1x, port1y, port2x, port2y, port3x, port3y, port4x, port4y]
+      portPos = [0, 0, 0, 0, 0, 0, 0, 0]
+    elif self.ports == 1:
+      x_total = (self.x_pixels+self.launch_pixels_l)*self.pixelSize
+      y_total = self.y_pixels*self.pixelSize
+      #Define the position of the ports for BEM simulators. This is a one column array with:
+      #[port1x, port1y, port2x, port2y, port3x, port3y, port4x, port4y]
+      portPos = [0, y_total/2, 0, 0, 0, 0, 0, 0] 
+    elif self.ports == 2:
       if self.sides == 2:
         x_total = (self.x_pixels+2*self.launch_pixels_l)*self.pixelSize
         y_total = self.y_pixels*self.pixelSize
@@ -134,7 +148,14 @@ class randomDesign:
     return x_total, y_total, portPos
 
   def addLaunch(self,x_total,y_total,pixel_map):
-    if self.ports == 2:
+    if self.ports == 1:
+      # Add launches: assume a rectangle with port 1 = West
+      for x in range(self.launch_pixels_l):
+        for y in range(self.launch_pixels_w):
+          pixel_map[x,y+math.ceil(int(self.y_pixels/2))-math.floor(self.launch_pixels_w/2)] = 1
+        y += 1
+      x += 1
+    elif self.ports == 2:
       # Add launches: assume a rectangle with port 1 = West, 2 = East
       for x in range(self.launch_pixels_l):
         for y in range(self.launch_pixels_w):
@@ -201,7 +222,12 @@ class randomDesign:
     port_4 = []
     port_5 = []
     source = []
-    if self.ports == 2:
+    if self.ports == 1:
+      port_1 = [(self.launch_pixels_l*self.pixelSize*0.5, (math.ceil(int(self.y_pixels/2))-1.05*(self.launch_pixels_w/2)+0.5)*self.pixelSize), \
+                (self.launch_pixels_l*self.pixelSize*0.5, (math.ceil(int(self.y_pixels/2))+1.05*(self.launch_pixels_w/2)+0.5)*self.pixelSize)]
+      source = [(1, (math.ceil(int(self.y_pixels/2))-1.05*(self.launch_pixels_w/2)+0.5)*self.pixelSize), \
+                (1, (math.ceil(int(self.y_pixels/2))+1.05*(self.launch_pixels_w/2)+0.5)*self.pixelSize)]
+    elif self.ports == 2:
       port_1 = [(self.launch_pixels_l*self.pixelSize*0.5, (math.ceil(int(self.y_pixels/2))-1.05*(self.launch_pixels_w/2)+0.5)*self.pixelSize), \
                 (self.launch_pixels_l*self.pixelSize*0.5, (math.ceil(int(self.y_pixels/2))+1.05*(self.launch_pixels_w/2)+0.5)*self.pixelSize)]
         #poly_1 = gdspy.Polygon(port_1, **self.l_port1)
