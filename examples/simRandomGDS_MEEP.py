@@ -42,7 +42,7 @@ w_h = min_w*pixelSize
 w_l = max_w*pixelSize
 print(Zo_h,Zo_l)
 
-pathName = '/home/jswalling/pythonWork/rrfc/meep/' # Base path for file creation
+pathName = '/home/epritchard/pythonWork/rrfc/meep/' # Base path for file creation
 
 # This code will generate a prototype filter using the classical design method for the stepped impedance filter. 
 # The prototype has a fixed order and filter type that can be defined, and ultimately this filter will be used 

@@ -24,6 +24,9 @@ write = True # Control whether output files are written or not
 ports = 2 # For now, code makes either 2, 3 or 4 ports
 sides = 2 # For now, code can put ports on 2, 3 or 4 sides, with constraints that are spelled out in rrfc
 pixelSize = 18 # the size of the randomized pixel in mils. Typically contrained by a PCB manufacturer.
+scale = 1
+layoutRes = scale*1
+minPixel = scale*6
 layoutUnit = 25.4e-6 # Set the layout unit to mils
 
 # Define Zo,h and Zo,l for the filter sections: Assume that the minimum width is 1 line of pixels; this
@@ -39,7 +42,7 @@ w_h = min_w*pixelSize
 w_l = max_w*pixelSize
 print(Zo_h,Zo_l)
 
-pathName = '/home/jswalling/pythonWork/rrfc/' # Base path for file creation
+pathName = '/home/epritchard/pythonWork/rrfc/' # Base path for file creation
 
 # This code will generate a prototype filter using the classical design method for the stepped impedance filter. 
 # The prototype has a fixed order and filter type that can be defined, and ultimately this filter will be used 
@@ -47,7 +50,7 @@ pathName = '/home/jswalling/pythonWork/rrfc/' # Base path for file creation
 os.chdir(pathName)
 outFile = pathName + 'data/' + "steppedImpFilter_pixelSize=" + str(pixelSize) + "_order=" + str(filtOrder) + '_' + filtType
 rfc1 = rfc(unit=layoutUnit,pixelSize=pixelSize,sim=simulator,\
-        view=False,write=False,outF=outFile)
+        view=False,write=False,outF=outFile,layoutRes=layoutRes, scale=scale,corner='standard')
 _, xProto, yProto, _, _, _, launch_l_pixels = uStripSteppedImpFilterGDS(sub1, rfc1, filtType, filtOrder, \
                                                      w_h, w_l, Zo_h, Zo_l, z0)
 
@@ -98,7 +101,7 @@ for x in range(75460,100000): # Run 100 iterations of file generation and simula
               + str(filtOrder) + "_pixelSize=" + str(pixelSize) + "_sim=" + str(y)
   rrfc1 = rrfc(unit=layoutUnit,ports=ports,sides=sides,connect=connectMap,\
           pixelSize=pixelSize,seed=x,sim=simulator,view=view,write=write,\
-          outF=data_file,sym=sym)
+          outF=data_file,sym=sym,layoutRes=layoutRes, scale=scale,corner='standard',minPix=minPixel,launchLen=30,portPosition='')
   portPosition, xBoard, yBoard, csv_file, gds_file, cell, _ = randomGDS_dim(sub1, \
                                                       rrfc1, xProto, yProto, z0)
 
