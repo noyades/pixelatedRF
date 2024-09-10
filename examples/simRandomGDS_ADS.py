@@ -1,7 +1,7 @@
 import os
 import time, sys
 from vt_rrfc import *
-
+import datetime
 # Load constants and design choices. Assumes 2 layer PCB with 1 oz copper and 19 mil total thickness
 fc = 5.0e9 # Operating center frequency for electrical length calculations 
            # (make this smaller than or equal to the desired operating frequency
@@ -126,5 +126,8 @@ for x in range(75460,100000): # Run 100 iterations of file generation and simula
     em1 = emSim(workingPath = pathName, adsLibName = libName, gdsFile = gds_file,\
               csvFile = csv_file, numPorts = ports, portPositions = portPosition,\
               gdsCellName = cell, dataFile = data_file)
+    em1.begin_time = str(datetime.datetime.now())
+    with open("/home/epritchard/emlog"+em1.begin_time+".txt","w") as fp:
+	fp.write("simulations began at "+em1.begin_time+"/n")
     emSim.momRun(em1)
 
