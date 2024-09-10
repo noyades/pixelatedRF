@@ -3,6 +3,7 @@ import meep.adjoint as mpa
 import autograd.numpy as npa
 #import meep_materials
 from meep.materials import Cu
+import datetime
 
 from autograd import tensor_jacobian_product, grad
 import gdspy
@@ -22,6 +23,7 @@ class emSim:
                gdsCellName: str,
                dataFile: str,
                Substrate = None):
+    
     self.pathName = workingPath
     self.libName = adsLibName
     self.gds_file = gdsFile
@@ -31,6 +33,11 @@ class emSim:
     self.cell = gdsCellName
     self.dataF = dataFile
     self.sub = Substrate
+    #BEGIN EDDIE CODE 9-10-24
+    self.creation_timestamp = datetime.datetime.now()
+    with open("emsim_log_"+str(self.creation_timestamp)+".txt","w")as fp:
+      fp.write("em sim began at "+str(self.creation_timestamp)+"/n")
+    #END EDDIE CODE 9-10-24
   """
   This code assumes that in your path, you will have an ADS workspace created amd that at 
   the same level of hierarchy you will have a data folder to collect simulation results 
@@ -61,6 +68,11 @@ class emSim:
                simulation. 
   """
   def momRun(self):
+
+    #BEGIN EDDIE CODE 9-10-24
+    with open("emsim_log_"+str(self.creation_timestamp)+".txt","a") as fp:
+      fp.write(str(datetime.datetime.now())+"\n")
+    #END EDDIE CODE 9-10-24
     # Import GDS into ADS environment and setup environment for simulation
     aelName = 'autoloadEMSim.dem'
     createOpenAel(self.pathName, self.libName, self.gds_file, self.ports, \
