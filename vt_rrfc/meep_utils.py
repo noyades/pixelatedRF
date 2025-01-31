@@ -968,4 +968,3 @@ def load_rt(filename, layer_thickness=None, plot_freq_min=None, plot_freq_max=No
                 map(lambda a: a[int(d0):int(d1)], (freq, s11amp, s11phase, s12amp, s12phase))
     return freq, s11amp, s11phase, s12amp, s12phase, xlim, (d, plot_freq_min, plot_freq_min)
 #}}}
-

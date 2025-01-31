@@ -1,27 +1,30 @@
+import math
 import meep as mp
-import meep.adjoint as mpa
-import autograd.numpy as npa
+#import meep.adjoint as mpa
+#import autograd.numpy as npa
 #import meep_materials
-from meep.materials import Cu
+#from meep.materials import Cu
 
-from autograd import tensor_jacobian_product, grad
+#from autograd import tensor_jacobian_product, grad
 import gdspy
 import os
 import time, sys
 from vt_rrfc import *
 import matplotlib.pyplot as plt
+import subprocess 
+import psutil
 
-class emSim:
+class EmSim:
   def __init__(self, 
                workingPath: str,
                adsLibName: str,
                gdsFile: str,
                csvFile: str,
                numPorts: int,
-               portPositions,
+               portPositions: list,
                gdsCellName: str,
                dataFile: str,
-               Substrate = None):
+               Substrate: object = None):
     self.pathName = workingPath
     self.libName = adsLibName
     self.gds_file = gdsFile
@@ -60,11 +63,12 @@ class emSim:
   dataFile --> This is the name of the data file that will be created at the end of the
                simulation. 
   """
-  def momRun(self):
-    # Import GDS into ADS environment and setup environment for simulation
+  def mom_run(self):
+    """
+    Import GDS into ADS environment, set up the environment for simulation, and run the Momentum simulation.
+    """
     aelName = 'autoloadEMSim.dem'
-    createOpenAel(self.pathName, self.libName, self.gds_file, self.ports, \
-                      self.portPosition, aelName, self.cell)
+    AelTools.create_open_ael(self.pathName, self.libName, self.gds_file, self.ports, self.portPosition, aelName, self.cell)
 
     # This is must setup ADS tools to be on the path. It points to a setup script for the ECE
     # department at Virginia Tech. The script for CAD tools is used by the RFIC group in MICS 
@@ -76,15 +80,19 @@ class emSim:
     # the AEL script that is created above the ADS setup (HPEESOF) which will put ads and 
     # adsMomWrapper on the path and setup the licensing. Future variants of the script will 
     # add hooks for EMX simulation    
-    command = 'source /software/RFIC/cadtools/cadence/setups/setup-tools; ads -m ' \
-              + self.pathName + self.libName + '_wrk/' + aelName + ' &'
-    os.system(command)
+    ##command = "source /software/RFIC/cadtools/cadence/setups/setup-tools; ads -m " \
+    ##          + self.pathName + self.libName + "_wrk/" + aelName + " &"
+    command = f"source /software/RFIC/cadtools/cadence/setups/setup-tools; ads -m {self.pathName}{self.libName}_wrk/{aelName} &"
+    #os.system(command)
+    ##adsPrep = subprocess.run(command, shell=True)
+    subprocess.run(command, shell=True)
+    time.sleep(30)
 
     # Import of the gds and automation of port addition takes a few seconds. I add a pause 
     # to ensure that the import is fully done before starting the sim (can probably be 
     # shortened. Will later look to just add feature to only proceed when the execution 
     # above is complete
-    time.sleep(90)
+    #time.sleep(90)
     print('We are still working')
 
     dataSet = self.dataF.replace(self.pathName + 'data/','') 
@@ -95,18 +103,20 @@ class emSim:
     command = 'source /software/RFIC/cadtools/cadence/setups/setup-tools; \
               adsMomWrapper --dsName=' + dataSet + ' --dsDir=' + self.pathName + 'data/ -O -3D proj proj'
               #adsMomWrapper -O -3D proj proj'
-    os.system(command)
+    #os.system(command)
+    subprocess.run(command, shell=True , check=True)
     
     # Create the ADS Dataset
     os.chdir(self.pathName + self.libName + '_wrk/simulation/' + self.libName + '_lib/' + \
              self.cell + '/layout/emSetup_MoM/')
     command = 'source /software/RFIC/cadtools/cadence/setups/setup-tools; \
               adsMomWrapper -CD proj proj'
-    os.system(command)
+    #os.system(command)
+    subprocess.run(command, shell=True, check=True)
     
     # Clean up after Momentum Simulation to prepare for next simulation
     aelCloseName = 'autoCloseEMSim.dem'
-    createCloseAel(self.pathName,self.libName,aelCloseName, self.cell)
+    AelTools.create_close_ael(self.pathName,self.libName,aelCloseName, self.cell)
   
     os.chdir(self.pathName)
     # Eveything in its right place :)
@@ -116,21 +126,27 @@ class emSim:
               '.afs; mv ' + self.csv_file + ' ' + self.pathName + \
               '/data/pixelMaps/.; mv ' + self.gds_file + ' ' + self.pathName + \
               '/data/gds/.'
-    os.system(command)
+    #os.system(command)
+    subprocess.run(command, shell=True, check=True)
     # This will delete the layout view, leaving the emSetup so that the environment
     # is preparted for the next simulation
     command = 'source /software/RFIC/cadtools/cadence/setups/setup-tools; ads -m ' + \
               self.pathName + self.libName + '_wrk/' + aelCloseName + ' &'
-    os.system(command)
+    #os.system(command)
+    subprocess.run(command, shell=True, check=True)
     # This removes the simulation path so the environment can create a fresh one for 
     # the next simulation. All data should have been moved in steps above.
     command = 'rm -rf ' + self.pathName + self.libName + '_wrk/simulation/*'
-    os.system(command)
+    #os.system(command)
+    subprocess.run(command, shell=True, check=True)
 
     time.sleep(10)
     print('Cleaning up!')
-  
-  def emxRun(self, procFile):
+
+  def sigmoid(x):
+    return 1 / (1 + npa.exp(-x))
+
+  def emx_run(self, procFile):
     # Call EMX Simulation
 
     if self.ports == 1:
@@ -173,7 +189,7 @@ class emSim:
               sports + ' ' + self.pathName + '/data/spfiles/.'
     os.system(command)
 
-  def meepRun(self):
+  def meep_run(self):
     
     # Define specific boundary conditions for meep
     res = 50 # number of pixels per mil

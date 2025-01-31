@@ -45,7 +45,7 @@ class pixOps:
 
 class dbsAlgo:
 
-  def __init__(self,loS,cost_function,rows,symmetry,simulPositions = 5,max_iteration = 3,callback_function = None,initial_solution = None):
+  def __init__(self,loS,cost_function,rows,symmetry,minmax,simulPositions = 5,max_iteration = 3,callback_function = None,initial_solution = None):
     self.loS = loS
     self.cost_function = cost_function
     self.rows = rows
@@ -58,11 +58,12 @@ class dbsAlgo:
     else:
       self.__Sol = np.random.randint(0, 2, size=(self.loS))
 
-    self.cg_curve = np.zeros((max_iteration*self.loS))
+    self.cg_curve = np.zeros(max_iteration*self.loS)
     self.cost = np.zeros(1)
     self.__iter = 0
     self.best_solution = np.zeros(loS)
     self.__undisturbed = np.array(range(0,self.loS))
+    self.minmax = minmax
 
     if (callback_function == None):
       def call_back():
@@ -109,10 +110,16 @@ class dbsAlgo:
             temp_solution = temp_solution.reshape(self.loS,1)
             new_cost = self.cost_function(temp_solution)
             print('sim=' + str(i) + ' Simult. Positions' + str(j) + ' Positions remaining=' + str(self.__undisturbed.size))
-            if (new_cost <= self.cost):
-              self.__Sol = temp_solution
-              self.cost = new_cost
-              self.best_solution = self.__Sol
+            if self.minmax == 'min':
+              if (new_cost <= self.cost):
+                self.__Sol = temp_solution
+                self.cost = new_cost
+                self.best_solution = self.__Sol
+            elif self.minmax == 'max':
+              if (new_cost >= self.cost):
+                self.__Sol = temp_solution
+                self.cost = new_cost
+                self.best_solution = self.__Sol
           else:
             for j in range(0,self.sim_positions):
               perturbate_shuffle = np.random.randint(0,self.__undisturbed.size)
@@ -122,10 +129,16 @@ class dbsAlgo:
                 self.__undisturbed = np.delete(self.__undisturbed,perturbate_shuffle)
             new_cost = self.cost_function(temp_solution)
             print('sim=' + str(i) + ' Simult. Positions' + str(j) + ' Positions remaining=' + str(self.__undisturbed.size))
-            if (new_cost <= self.cost):
-              self.__Sol = temp_solution
-              self.cost = new_cost
-              self.best_solution = self.__Sol
+            if self.minmax == 'min':
+              if (new_cost <= self.cost):
+                self.__Sol = temp_solution
+                self.cost = new_cost
+                self.best_solution = self.__Sol
+            if self.minmax == 'max':
+              if (new_cost >= self.cost):
+                self.__Sol = temp_solution
+                self.cost = new_cost
+                self.best_solution = self.__Sol
 
           print('sim=' + str(int((self.__iter * self.loS + i)/self.sim_positions)))
           self.cg_curve[int((self.__iter * self.loS + i)/self.sim_positions)] = self.cost
@@ -184,45 +197,65 @@ class dbsAlgo:
     return self.best_solution
 
 class bpsAlgo:
-    """
-    Binary Particle Swarm Optimization Algorithm.
-    Parameters
-    ----------
-    noS : Int
-        Initial Number of solutions.
-    loS : Int
-        Length of a single solution.
-    cost_function : func
-        Cost function for evaluating a single solution, input: Array, size (loS,), output: Float, lower means better .
-    max_iteration : Int
-        Maximum of iterations (default: 500).
-    callback_function : func
-        Self-defined callback function that will be called after every iteration (default: None).
-    v_max : Float or Int
-        Maximum of particle velocity (default: 6).
-    inertia_weight : Float
-        Intertia weight for particles (default: 0.99).
-    c_1 : Float or Int
-        Learning rate for self-cognition (default: 2).
-    c_2 : Float or Int
-        Learning rate for social-cognition (default: 2).
-    ratio_personal : Float
-        Ratio for self-cognition (default: 0.2).
-    ratio_global : Float
-        Ratio for social-cognition (default: 0.8).
-    """
-    def __init__(self, noS , loS, cost_function , max_iteration = 500, callback_function=None, initial_solution = None, \
-                 v_max = 6, inertia_weight = 0.99, c_1 = 2, c_2 = 2, ratio_personal = 0.2, ratio_global = 0.8):
-        self.max_iteration = max_iteration
+    
+
+    def __init__(self, 
+                 noS, 
+                 loS, 
+                 cost_function, 
+                 minmax, 
+                 max_iteration = 500, 
+                 callback_function=None, 
+                 initial_solution = None, 
+                 v_max = 6, 
+                 inertia_weight = 0.99, 
+                 c_1 = 2, 
+                 c_2 = 2, 
+                 ratio_personal = 0.2, 
+                 ratio_global = 0.8):
+        """
+        Binary Particle Swarm Optimization Algorithm.
+
+        Parameters
+        ----------
+        noS : Int
+            Initial Number of solutions.
+        loS : Int
+            Length of a single solution.
+        cost_function : func
+            Cost function for evaluating a single solution, input: Array, size (loS,), output: Float, lower means better .
+        minmax : string
+            Direction of optimization, to minimize FoM 'min', to maximize 'max'
+        max_iteration : Int
+            Maximum of iterations (default: 500).
+        callback_function : func
+            Self-defined callback function that will be called after every iteration (default: None).
+        v_max : Float or Int
+            Maximum of particle velocity (default: 6).
+        inertia_weight : Float
+            Intertia weight for particles (default: 0.99).
+        c_1 : Float or Int
+            Learning rate for self-cognition (default: 2).
+        c_2 : Float or Int
+            Learning rate for social-cognition (default: 2).
+        ratio_personal : Float
+            Ratio for self-cognition (default: 0.2).
+        ratio_global : Float
+            Ratio for social-cognition (default: 0.8).
+        """
         self.noS = noS
         self.loS = loS
+        self.cost_function = cost_function
+        self.max_iteration = max_iteration
+        self.callback_function = callback_function
         self.v_max = v_max
         self.inertia_weight = inertia_weight
         self.c_1 = c_1
         self.c_2 = c_2
         self.ratio_personal = ratio_personal
         self.ratio_global = ratio_global
-        self.cost_function = cost_function
+        self.minmax = minmax
+        
         #self.__Sol = np.random.randint(0,2,size=(noS,loS)) # Initialize the solutions
         if (type(initial_solution) != type(None)):
           self.__Sol = np.concatenate((initial_solution, np.random.randint(0, 2, size=(noS-1,loS))),0)
@@ -235,8 +268,11 @@ class bpsAlgo:
         self.__engine_flag = 0
         self.__iter = 0
         self.best_solution = np.zeros((1,loS))
+        self.max_cost = -math.inf
         self.min_cost = math.inf
+
         self.engine_init()
+        
         if (callback_function == None):
             def call_back():
                 pass
@@ -251,9 +287,13 @@ class bpsAlgo:
         for i in range(0, self.__Sol.shape[0]):
             self.__cost[i] = self.cost_function(self.__Sol[i, :])
         self.min_cost = np.min(self.__cost, axis=0)
+        self.max_cost = np.max(self.__cost, axis=0)
         __min_position = np.argmin(self.__cost, axis=0)
-        self.best_solution = self.__Sol[__min_position, :].copy()
-
+        __max_position = np.argmax(self.__cost, axis=0)
+        if self.minmax == 'min':
+          self.best_solution = self.__Sol[__min_position, :].copy()
+        elif self.minmax == 'max':
+          self.best_solution = self.__Sol[__max_position, :].copy()
         ## Initialize the iteration
         self.__iter = 0
         self.__engine_flag = 1
@@ -266,7 +306,10 @@ class bpsAlgo:
         if(self.__engine_flag == 0):
             raise Exception("Engine has not been initialized, run: \"obj.engine_init()\" first")
         while (self.__iter < self.max_iteration):
-            self.cg_curve[self.__iter] = self.min_cost
+            if self.minmax == 'min':
+                self.cg_curve[self.__iter] = self.min_cost
+            if self.minmax == 'max':
+                self.cg_curve[self.__iter] = self.max_cost
             self.__iter += 1
 
             for i in range(0, self.noS):
@@ -280,13 +323,20 @@ class bpsAlgo:
 
                 ## Calculate the cost
                 new_cost = self.cost_function(self.__Sol[i,:])
-                if (new_cost <= self.__cost[i]) :
-                    self.__Best_Sol[i, :] = self.__Sol[i,:].copy()
-                    self.__cost[i] = new_cost
-
-                if new_cost <= self.min_cost:
-                    self.best_solution = self.__Sol[i,:].copy()
-                    self.min_cost = new_cost
+                if self.minmax == 'min':
+                  if (new_cost <= self.__cost[i]) :
+                      self.__Best_Sol[i, :] = self.__Sol[i,:].copy()
+                      self.__cost[i] = new_cost
+                  if new_cost <= self.min_cost:
+                      self.best_solution = self.__Sol[i,:].copy()
+                      self.min_cost = new_cost
+                elif self.minmax == 'max':
+                  if new_cost >= self.max_cost:
+                      self.__Best_Sol[i, :] = self.__Sol[i,:].copy()
+                      self.__cost[i] = new_cost
+                  if new_cost >= self.max_cost:
+                      self.best_solution = self.__Sol[i,:].copy()
+                      self.max_cost = new_cost
 
             ## Call back function
             self.call_back()
@@ -312,6 +362,16 @@ class bpsAlgo:
             Minimum of cost.
         """
         return self.min_cost
+
+    def get_max_cost(self):
+        """
+        Get the temporal minimum of cost.
+        Returns
+        -------
+        out : Float
+            Minimum of cost.
+        """
+        return self.max_cost
 
     def get_best_solution(self):
         """
@@ -363,10 +423,11 @@ class bbAlgo:
     pulse_rate : Float
         Pulse rate in Binary Bat Algorithm (default: 0.1).
     """
-    def __init__(self, noS , loS, cost_function , max_iteration = 500,callback_function=None, initial_solution = None,loudness = 0.25, pulse_rate = 0.1):
+    def __init__(self, noS , loS, cost_function , minmax, max_iteration = 500,callback_function=None, initial_solution = None,loudness = 0.25, pulse_rate = 0.1):
         self.max_iteration = max_iteration
         self.noS = noS
         self.loS = loS
+        self.minmax = minmax
         self.loudness = loudness
         self.pulse_rate = pulse_rate
         self.cost_function = cost_function
@@ -388,7 +449,9 @@ class bbAlgo:
         self.__iter = 0
         self.best_solution = np.zeros((1,loS))
         self.min_cost = math.inf
+        self.max_cost = -math.inf
         self.__min_position = math.inf
+        self.__max_position = -math.inf
         self.engine_init()
         if (callback_function == None):
             def call_back():
@@ -404,8 +467,13 @@ class bbAlgo:
         for i in range(0, self.noS):
             self.__cost[i] = self.cost_function(self.__Sol[i, :])
         self.min_cost = np.min(self.__cost, axis=0)[0]
+        self.max_cost = np.max(self.__cost, axis=0)[0]
         self.__min_position = np.argmin(self.__cost, axis=0)[0]
-        self.best_solution = self.__Sol[self.__min_position, :].copy()
+        self.__max_position = np.argmax(self.__cost, axis=0)[0]
+        if self.minmax == 'min':
+            self.best_solution = self.__Sol[self.__min_position, :].copy()
+        if self.minmax == 'max':
+            self.best_solution = self.__Sol[self.__max_position, :].copy()
 
         ## Initialize the iteration
         self.__iter = 0
@@ -418,7 +486,10 @@ class bbAlgo:
         if(self.__engine_flag == 0):
             raise Exception("Engine has not been initialized, run: \"obj.engine_init()\" first")
         while (self.__iter < self.max_iteration):
-            self.cg_curve[self.__iter] = self.min_cost
+            if self.minmax == 'min':
+                self.cg_curve[self.__iter] = self.min_cost
+            elif self.minmax == 'max':
+                self.cg_curve[self.__iter] = self.max_cost
             self.__iter += 1
             for i in range(0,self.noS):
                 ## create a temporal solution
@@ -437,14 +508,24 @@ class bbAlgo:
 
                 ## Calculate the cost
                 new_cost =  self.cost_function(temp_solution)
-                if (new_cost <= self.__cost[i]) and (np.random.rand() < self.loudness):
-                    self.__Sol[i,:] = temp_solution
-                    self.__cost[i] = new_cost
-
-                # Ppdate the current best
-                if new_cost <= self.min_cost:
-                    self.best_solution = temp_solution.copy()
-                    self.min_cost = new_cost
+                if self.minmax == 'min':
+                  if (new_cost <= self.__cost[i]) and (np.random.rand() < self.loudness):
+                      self.__Sol[i,:] = temp_solution
+                      self.__cost[i] = new_cost
+  
+                  # Ppdate the current best
+                  if new_cost <= self.min_cost:
+                      self.best_solution = temp_solution.copy()
+                      self.min_cost = new_cost
+                if self.minmax == 'max':
+                  if (new_cost >= self.__cost[i]) and (np.random.rand() < self.loudness):
+                      self.__Sol[i,:] = temp_solution
+                      self.__cost[i] = new_cost
+  
+                  # Ppdate the current best
+                  if new_cost >= self.max_cost:
+                      self.best_solution = temp_solution.copy()
+                      self.max_cost = new_cost
 
             ## Call back function
             self.call_back()
@@ -470,6 +551,16 @@ class bbAlgo:
             Minimum of cost.
         """
         return self.min_cost
+
+    def get_max_cost(self):
+        """
+        Get the temporal minimum of cost.
+        Returns
+        -------
+        out : Float
+            Minimum of cost.
+        """
+        return self.max_cost
 
     def get_best_solution(self):
         """
