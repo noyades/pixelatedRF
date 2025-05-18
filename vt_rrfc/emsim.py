@@ -9,6 +9,7 @@ import meep as mp
 import gdspy
 import os
 import time, sys
+import numpy as np
 from vt_rrfc import *
 import matplotlib.pyplot as plt
 import subprocess 
@@ -67,8 +68,16 @@ class EmSim:
     """
     Import GDS into ADS environment, set up the environment for simulation, and run the Momentum simulation.
     """
-    aelName = 'autoloadEMSim.dem'
-    AelTools.create_open_ael(self.pathName, self.libName, self.gds_file, self.ports, self.portPosition, aelName, self.cell)
+    aelOpenName = 'autoloadEMSim.dem'
+    aeo = AelTools(pathName=self.pathName,
+      libName=self.libName,
+      gdsName=self.gds_file,
+      ports=self.ports,
+      portPosition=self.portPosition,
+      aelName=aelOpenName,
+      cellName=self.cell)
+
+    aeo.create_open_ael()
 
     # This is must setup ADS tools to be on the path. It points to a setup script for the ECE
     # department at Virginia Tech. The script for CAD tools is used by the RFIC group in MICS 
@@ -82,7 +91,7 @@ class EmSim:
     # add hooks for EMX simulation    
     ##command = "source /software/RFIC/cadtools/cadence/setups/setup-tools; ads -m " \
     ##          + self.pathName + self.libName + "_wrk/" + aelName + " &"
-    command = f"source /software/RFIC/cadtools/cadence/setups/setup-tools; ads -m {self.pathName}{self.libName}_wrk/{aelName} &"
+    command = f"source /software/RFIC/cadtools/cadence/setups/setup-tools; ads -m {self.pathName}{self.libName}_wrk/{aelOpenName} &"
     #os.system(command)
     ##adsPrep = subprocess.run(command, shell=True)
     subprocess.run(command, shell=True)
@@ -116,7 +125,14 @@ class EmSim:
     
     # Clean up after Momentum Simulation to prepare for next simulation
     aelCloseName = 'autoCloseEMSim.dem'
-    AelTools.create_close_ael(self.pathName,self.libName,aelCloseName, self.cell)
+    aec = AelTools(pathName=self.pathName,
+      libName=self.libName,
+      gdsName=self.gds_file,
+      ports=self.ports,
+      portPosition=self.portPosition,
+      aelName=aelCloseName,
+      cellName=self.cell)
+    aec.create_close_ael()
   
     os.chdir(self.pathName)
     # Eveything in its right place :)
@@ -144,7 +160,7 @@ class EmSim:
     print('Cleaning up!')
 
   def sigmoid(x):
-    return 1 / (1 + npa.exp(-x))
+    return 1 / (1 + np.exp(-x))
 
   def emx_run(self, procFile):
     # Call EMX Simulation

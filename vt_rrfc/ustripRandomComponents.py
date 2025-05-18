@@ -633,15 +633,7 @@ class RandomComponent:
       if self.view == True:
         gdspy.LayoutViewer(lib) 
 
-    return {
-        "port_positions": portPos,
-        "total_x_dimension": x_total,
-        "total_y_dimension": y_total,
-        "csv_file": csvFile,
-        "gds_file": gdsFile,
-        "cell_name": cellName,
-        "launch_length_pixels": launch_l_pixels
-    }
+    return portPos, x_total, y_total, csvFile, gdsFile, cellName, launch_l_pixels
 
   def recreate_gds_file(rrfc,sub,imp):
 
