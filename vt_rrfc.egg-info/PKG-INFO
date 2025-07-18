@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Name: vt_rrfc
+Version: 0.0.2
+Summary: Tools for generating gds for inverse design in PCB and IC
+Home-page: https://github.com/noyades/pixelatedRF
+Author: Jeff Walling
+Author-email: jswalling@vt.edu
+License-File: LICENSE.md
+Requires-Dist: gdspy
+Requires-Dist: numpy
+Requires-Dist: scipy

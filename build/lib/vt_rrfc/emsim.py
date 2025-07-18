@@ -8,14 +8,12 @@ import meep as mp
 #from autograd import tensor_jacobian_product, grad
 import gdspy
 import os
-import platform
 import time, sys
 import numpy as np
 from vt_rrfc import *
 import matplotlib.pyplot as plt
 import subprocess 
 import psutil
-import shutil
 
 class EmSim:
   def __init__(self, 
@@ -27,8 +25,7 @@ class EmSim:
                portPositions: list,
                gdsCellName: str,
                dataFile: str,
-               Substrate: object = None,
-               simPath: str = None):
+               Substrate: object = None):
     self.pathName = workingPath
     self.libName = adsLibName
     self.gds_file = gdsFile
@@ -38,7 +35,6 @@ class EmSim:
     self.cell = gdsCellName
     self.dataF = dataFile
     self.sub = Substrate
-    self.simPath = simPath
   """
   This code assumes that in your path, you will have an ADS workspace created amd that at 
   the same level of hierarchy you will have a data folder to collect simulation results 
@@ -72,10 +68,6 @@ class EmSim:
     """
     Import GDS into ADS environment, set up the environment for simulation, and run the Momentum simulation.
     """
-    if platform.system() == 'Windows' and self.simPath:
-      os.environ['PATH'] = self.simPath + os.pathsep + os.environ.get('PATH', "")
-      os.environ["HPEESOF_DIR"] = r"C:\Program Files\Keysight\ADS2025_Update1"
-
     aelOpenName = 'autoloadEMSim.dem'
     aeo = AelTools(pathName=self.pathName,
       libName=self.libName,
@@ -99,13 +91,7 @@ class EmSim:
     # add hooks for EMX simulation    
     ##command = "source /software/RFIC/cadtools/cadence/setups/setup-tools; ads -m " \
     ##          + self.pathName + self.libName + "_wrk/" + aelName + " &"
-    
-    if platform.system() == 'Windows':
-      command = f"ads -m {self.pathName}{self.libName}_wrk/{aelOpenName} &"
-    else: 
-      #command = f"source /software/RFIC/cadtools/cadence/setups/setup-tools; ads -m {self.pathName}{self.libName}_wrk/{aelOpenName} &"
-      command = f"export PATH=" + self.simPath + ":$PATH; ads -m {self.pathName}{self.libName}_wrk/{aelOpenName} &"
-
+    command = f"source /software/RFIC/cadtools/cadence/setups/setup-tools; ads -m {self.pathName}{self.libName}_wrk/{aelOpenName} &"
     #os.system(command)
     ##adsPrep = subprocess.run(command, shell=True)
     subprocess.run(command, shell=True)
@@ -123,14 +109,8 @@ class EmSim:
     # Run Momentum Simulation
     os.chdir(self.pathName + self.libName + '_wrk/simulation/' + self.libName + '_lib/' + \
              self.cell + '/layout/emSetup_MoM/')
-    print(self.pathName + self.libName + '_wrk/simulation/' + self.libName + '_lib/' + \
-             self.cell + '/layout/emSetup_MoM/')
-    if platform.system() == 'Windows':
-      command = 'adsMomWrapper --dsName=' + dataSet + ' --dsDir=' + self.pathName + 'data/ -O -3D proj proj'
-      print(command)
-    else:
-      command = 'source /software/RFIC/cadtools/cadence/setups/setup-tools; \
-                adsMomWrapper --dsName=' + dataSet + ' --dsDir=' + self.pathName + 'data/ -O -3D proj proj'
+    command = 'source /software/RFIC/cadtools/cadence/setups/setup-tools; \
+              adsMomWrapper --dsName=' + dataSet + ' --dsDir=' + self.pathName + 'data/ -O -3D proj proj'
               #adsMomWrapper -O -3D proj proj'
     #os.system(command)
     subprocess.run(command, shell=True , check=True)
@@ -138,11 +118,8 @@ class EmSim:
     # Create the ADS Dataset
     os.chdir(self.pathName + self.libName + '_wrk/simulation/' + self.libName + '_lib/' + \
              self.cell + '/layout/emSetup_MoM/')
-    if platform.system() == 'Windows':
-      command = 'adsMomWrapper -CD proj proj'
-    else:
-      command = 'source /software/RFIC/cadtools/cadence/setups/setup-tools; \
-                adsMomWrapper -CD proj proj'
+    command = 'source /software/RFIC/cadtools/cadence/setups/setup-tools; \
+              adsMomWrapper -CD proj proj'
     #os.system(command)
     subprocess.run(command, shell=True, check=True)
     
@@ -159,46 +136,18 @@ class EmSim:
   
     os.chdir(self.pathName)
     # Eveything in its right place :)
-    if platform.system() == 'Windows':
-      # Define source and destination paths
-      src_afs = os.path.join(self.pathName, self.libName + '_wrk', 'simulation', self.libName + '_lib', self.cell, 'layout', 'emSetup_MoM', 'proj.afs')
-      dst_afs = os.path.join(self.pathName, 'data', 'spFiles', 'afs', dataSet + '.afs')
-
-      src_csv = self.csv_file
-      dst_csv = os.path.join(self.pathName, 'data', 'pixelMaps', os.path.basename(self.csv_file))
-
-      src_gds = self.gds_file
-      dst_gds = os.path.join(self.pathName, 'data', 'gdsFiles', os.path.basename(self.gds_file))
-      # Ensure destination directories exist
-      os.makedirs(os.path.dirname(dst_afs), exist_ok=True)
-      os.makedirs(os.path.dirname(dst_csv), exist_ok=True)
-      os.makedirs(os.path.dirname(dst_gds), exist_ok=True)
-      # Remove destination files if they exist
-      for dst in [dst_afs, dst_csv, dst_gds]:
-        if os.path.exists(dst):
-          os.remove(dst)
-
-      # Move the files
-      shutil.move(src_afs, dst_afs)
-      shutil.move(src_csv, dst_csv)
-      shutil.move(src_gds, dst_gds)
-
-    else:
-      command = 'mv ' + self.libName + '_wrk/simulation/' + \
-                self.libName + '_lib/' + self.cell + '/layout/emSetup_MoM/proj.afs ' + \
-                self.pathName + '/data/spfiles/afs/' + dataSet + \
-                '.afs; mv ' + self.csv_file + ' ' + self.pathName + \
-                '/data/pixelMaps/.; mv ' + self.gds_file + ' ' + self.pathName + \
-                '/data/gds/.'
+    command = 'mv ' + self.libName + '_wrk/simulation/' + \
+              self.libName + '_lib/' + self.cell + '/layout/emSetup_MoM/proj.afs ' + \
+              'data/spfiles/afs/' + dataSet + \
+              '.afs; mv ' + self.csv_file + ' ' + self.pathName + \
+              '/data/pixelMaps/.; mv ' + self.gds_file + ' ' + self.pathName + \
+              '/data/gds/.'
     #os.system(command)
     subprocess.run(command, shell=True, check=True)
     # This will delete the layout view, leaving the emSetup so that the environment
     # is preparted for the next simulation
-    if platform.system() == 'Windows':
-      command = 'ads -m ' + self.pathName + self.libName + '_wrk/' + aelCloseName + ' &'
-    else:
-      command = 'source /software/RFIC/cadtools/cadence/setups/setup-tools; ads -m ' + \
-                self.pathName + self.libName + '_wrk/' + aelCloseName + ' &'
+    command = 'source /software/RFIC/cadtools/cadence/setups/setup-tools; ads -m ' + \
+              self.pathName + self.libName + '_wrk/' + aelCloseName + ' &'
     #os.system(command)
     subprocess.run(command, shell=True, check=True)
     # This removes the simulation path so the environment can create a fresh one for 

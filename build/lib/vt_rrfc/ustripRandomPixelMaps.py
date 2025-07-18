@@ -1231,7 +1231,7 @@ class RandomUstrip:
     # Export GDS
     lib.write_gds(gdsFile)
 
-  def print_image_2(self):
+  def print_image(self):
 
     lib = gdspy.GdsLibrary()
     
@@ -1546,4 +1546,4 @@ class RandomUstrip:
     pngFile = self.outF.replace('csv', 'png')  
 
     # read svg -> write png
-    #renderPM.drawToFile(svg2rlg(svgFile), pngFile, fmt='PNG')
+    renderPM.drawToFile(svg2rlg(svgFile), pngFile, fmt='PNG')

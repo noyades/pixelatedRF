@@ -1,0 +1,6 @@
+logFile "proj.log";
+mesh_convergence_plot OFF;
+save_fields_for nofrequencies;
+SPARAM_OUTPUTFORMAT CITIFILE;
+DS_DIR "C:/Users/Owner/Documents/dbs_optimization/data/";
+DS_NAME "twoPort_30x30_pixelSize=8_0";

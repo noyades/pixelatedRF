@@ -5,8 +5,8 @@ import random
 import numpy as np
 import gdspy
 import pya
-from svglib.svglib import svg2rlg
-from reportlab.graphics import renderPM
+#from svglib.svglib import svg2rlg
+#from reportlab.graphics import renderPM
 from vt_rrfc import * 
 from vt_rrfc.randomDesigns import *
 #from skimage import measure
@@ -30,6 +30,7 @@ class RandomComponent:
                write: bool, 
                outF: str,
                sym: str,
+               shape: int,
                portPosition):
     """ define the microstrip substrate
     Args:
@@ -87,6 +88,7 @@ class RandomComponent:
     self.view = view
     self.outF = outF
     self.connect = connect
+    self.shape = shape
     self.portPos = portPosition
     if self.scale == 0 or self.layoutRes == 0 or self.pixelSize == 0:
       raise ValueError("Scale, layout resolution and pixel size must be non-zero values.")
@@ -106,6 +108,443 @@ class RandomComponent:
     width_launch = launch_w_pixels*self.pixelSize
     return launch_l_pixels, launch_w_pixels, width_launch, length_launch
 
+  def pixel_shape(self, shape):
+    """
+    This function defines the shape of the individual pixel as a sequence of points that can be called in a polygon object.
+    """
+    # Create an empty list to store the points
+    points = []
+    if shape == 1: 
+      # Square pixel
+      if self.sim == 'EMX':
+        # For EMX, we need to make sure that the pixel is a square
+        points = [pya.DPoint(0, 0),
+                  pya.DPoint(self.pixelSize, 0),
+                  pya.DPoint(self.pixelSize, self.pixelSize),
+                  pya.DPoint(0, self.pixelSize)]
+      else: # For other simulators, we can use a simple square using gdspy
+        points = [(0,0), 
+                   (self.pixelSize,0), 
+                   (self.pixelSize, self.pixelSize), 
+                   (0, self.pixelSize)]
+    elif shape == 2: 
+      # /-\
+      # | |
+      # \_/
+      if self.sim == 'EMX':
+        points = [pya.DPoint((self.minPix/2)*np.sqrt(2),0), 
+                  pya.DPoint(self.pixelSize-(self.minPix/2)*np.sqrt(2),0), 
+                  pya.DPoint(self.pixelSize, (self.minPix/2)*np.sqrt(2)), 
+                  pya.DPoint(self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
+                  pya.DPoint(self.pixelSize-(self.minPix/2)*np.sqrt(2), self.pixelSize), 
+                  pya.DPoint((self.minPix/2)*np.sqrt(2),self.pixelSize),
+                  pya.DPoint(0, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
+                  pya.DPoint(0, (self.minPix/2)*np.sqrt(2))]
+      else:
+        points = [((self.minPix/2)*np.sqrt(2),0), 
+                  (self.pixelSize-(self.minPix/2)*np.sqrt(2),0), 
+                  (self.pixelSize, (self.minPix/2)*np.sqrt(2)), 
+                  (self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
+                  (self.pixelSize-(self.minPix/2)*np.sqrt(2), self.pixelSize), 
+                  ((self.minPix/2)*np.sqrt(2),self.pixelSize),
+                  (0, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
+                  (0, (self.minPix/2)*np.sqrt(2))]
+    elif shape == 3:    
+      # /-|
+      # | |
+      # \_/
+      if self.sim == 'EMX':
+        points = [pya.DPoint((self.minPix/2)*np.sqrt(2),0), 
+                  pya.DPoint(self.pixelSize-(self.minPix/2)*np.sqrt(2),0), 
+                  pya.DPoint(self.pixelSize, (self.minPix/2)*np.sqrt(2)), 
+                  pya.DPoint(self.pixelSize, self.pixelSize), 
+                  pya.DPoint((self.minPix/2)*np.sqrt(2),self.pixelSize),
+                  pya.DPoint(0, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
+                  pya.DPoint(0, (self.minPix/2)*np.sqrt(2))]
+      else:
+        points = [((self.minPix/2)*np.sqrt(2),0), 
+                  (self.pixelSize-(self.minPix/2)*np.sqrt(2),0), 
+                  (self.pixelSize, (self.minPix/2)*np.sqrt(2)), 
+                  (self.pixelSize, self.pixelSize), 
+                  ((self.minPix/2)*np.sqrt(2),self.pixelSize),
+                  (0, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
+                  (0, (self.minPix/2)*np.sqrt(2))]
+    elif shape == 4:
+      # |-\
+      # | |
+      # \_/
+      if self.sim == 'EMX':
+        points = [pya.Dpoint((self.minPix/2)*np.sqrt(2),0), 
+                  pya.Dpoint(self.pixelSize-(self.minPix/2)*np.sqrt(2),0), 
+                  pya.Dpoint(self.pixelSize, (self.minPix/2)*np.sqrt(2)), 
+                  pya.Dpoint(self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
+                  pya.Dpoint(self.pixelSize-(self.minPix/2)*np.sqrt(2),self.pixelSize),
+                  pya.Dpoint(0, self.pixelSize), 
+                  pya.Dpoint(0, (self.minPix/2)*np.sqrt(2))]
+      else:
+        points = [((self.minPix/2)*np.sqrt(2),0), 
+                  (self.pixelSize-(self.minPix/2)*np.sqrt(2),0), 
+                  (self.pixelSize, (self.minPix/2)*np.sqrt(2)), 
+                  (self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
+                  (self.pixelSize-(self.minPix/2)*np.sqrt(2),self.pixelSize),
+                  (0, self.pixelSize), 
+                  (0, (self.minPix/2)*np.sqrt(2))]
+    elif shape == 5:
+      # /-\
+      # | |
+      # |_/
+      if self.sim == 'EMX':
+        points = [pya.Dpoint(0,0),                                            
+                  pya.Dpoint(self.pixelSize-(self.minPix/2)*np.sqrt(2),0),    
+                  pya.Dpoint(self.pixelSize, (self.minPix/2)*np.sqrt(2)),     
+                  pya.Dpoint(self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)),
+                  pya.Dpoint(self.pixelSize-(self.minPix/2)*np.sqrt(2),self.pixelSize),
+                  pya.Dpoint((self.minPix/2)*np.sqrt(2), self.pixelSize), 
+                  pya.Dpoint(0, self.pixelSize-(self.minPix/2)*np.sqrt(2))]
+      else:
+        points = [(0,0),                                            
+                  (self.pixelSize-(self.minPix/2)*np.sqrt(2),0),    
+                  (self.pixelSize, (self.minPix/2)*np.sqrt(2)),     
+                  (self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)),
+                  (self.pixelSize-(self.minPix/2)*np.sqrt(2),self.pixelSize),
+                  ((self.minPix/2)*np.sqrt(2), self.pixelSize), 
+                  (0, self.pixelSize-(self.minPix/2)*np.sqrt(2))]
+    elif shape == 6:
+      # /-\
+      # | |
+      # \_|
+      if self.sim == 'EMX':
+        points = [pya.Dpoint((self.minPix/2)*np.sqrt(2),0), 
+                  pya.Dpoint(self.pixelSize,0), 
+                  pya.Dpoint(self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
+                  pya.Dpoint(self.pixelSize-(self.minPix/2)*np.sqrt(2), self.pixelSize), 
+                  pya.Dpoint((self.minPix/2)*np.sqrt(2),self.pixelSize),
+                  pya.Dpoint(0, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
+                  pya.Dpoint(0, (self.minPix/2)*np.sqrt(2))]
+      else:
+        points = [((self.minPix/2)*np.sqrt(2),0), 
+                  (self.pixelSize,0), 
+                  (self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
+                  (self.pixelSize-(self.minPix/2)*np.sqrt(2), self.pixelSize), 
+                  ((self.minPix/2)*np.sqrt(2),self.pixelSize),
+                  (0, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
+                  (0, (self.minPix/2)*np.sqrt(2))]
+    elif shape == 7:
+      # /-|
+      # | |
+      # |_/
+      if self.sim == 'EMX':
+        points = [pya.Dpoint(0,0), 
+                  pya.Dpoint(self.pixelSize-(self.minPix/2)*np.sqrt(2),0), 
+                  pya.Dpoint(self.pixelSize, (self.minPix/2)*np.sqrt(2)), 
+                  pya.Dpoint(self.pixelSize, self.pixelSize), 
+                  pya.Dpoint((self.minPix/2)*np.sqrt(2), self.pixelSize),
+                  pya.Dpoint(0,self.pixelSize-(self.minPix/2)*np.sqrt(2))]
+      else:
+        points = [(0,0), 
+                  (self.pixelSize-(self.minPix/2)*np.sqrt(2),0), 
+                  (self.pixelSize, (self.minPix/2)*np.sqrt(2)), 
+                  (self.pixelSize, self.pixelSize), 
+                  ((self.minPix/2)*np.sqrt(2), self.pixelSize),
+                  (0,self.pixelSize-(self.minPix/2)*np.sqrt(2))]
+    elif shape == 8:
+      # |-\
+      # | |
+      # \_|
+      if self.sim == 'EMX':
+        points = [pya.Dpoint((self.minPix/2)*np.sqrt(2),0), 
+                  pya.Dpoint(self.pixelSize,0), 
+                  pya.Dpoint(self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
+                  pya.Dpoint(self.pixelSize-(self.minPix/2)*np.sqrt(2), self.pixelSize), 
+                  pya.Dpoint(0, self.pixelSize),
+                  pya.Dpoint(0,(self.minPix/2)*np.sqrt(2))]
+      else:
+        points = [((self.minPix/2)*np.sqrt(2),0), 
+                  (self.pixelSize,0), 
+                  (self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
+                  (self.pixelSize-(self.minPix/2)*np.sqrt(2), self.pixelSize), 
+                  (0, self.pixelSize),
+                  (0,(self.minPix/2)*np.sqrt(2))]
+    elif shape == 9:
+      # /-\
+      # | |
+      # |_|
+      if self.sim == 'EMX':
+        points = [pya.Dpoint(0,0), 
+                  pya.Dpoint(self.pixelSize,0), 
+                  pya.Dpoint(self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
+                  pya.Dpoint(self.pixelSize-(self.minPix/2)*np.sqrt(2), self.pixelSize), 
+                  pya.Dpoint((self.minPix/2)*np.sqrt(2), self.pixelSize), 
+                  pya.Dpoint(0, self.pixelSize-(self.minPix/2)*np.sqrt(2))]
+      else:
+        points = [(0,0), 
+                  (self.pixelSize,0), 
+                  (self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
+                  (self.pixelSize-(self.minPix/2)*np.sqrt(2), self.pixelSize), 
+                  ((self.minPix/2)*np.sqrt(2), self.pixelSize), 
+                  (0, self.pixelSize-(self.minPix/2)*np.sqrt(2))]
+    elif shape == 10:
+      # |-\
+      # | |
+      # |_|
+      if self.sim == 'EMX':
+        points = [pya.Dpoint(0,0), 
+                  pya.Dpoint(self.pixelSize,0), 
+                  pya.Dpoint(self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
+                  pya.Dpoint(self.pixelSize-(self.minPix/2)*np.sqrt(2), self.pixelSize), 
+                  pya.Dpoint(0, self.pixelSize)]
+      else: 
+        points = [(0,0), 
+                  (self.pixelSize,0), 
+                  (self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
+                  (self.pixelSize-(self.minPix/2)*np.sqrt(2), self.pixelSize), 
+                  (0, self.pixelSize)]
+    elif shape == 11:
+      # /-|
+      # | |
+      # |_|
+      if self.sim == 'EMX':
+        points = [pya.Dpoint(0,0), 
+                  pya.Dpoint(self.pixelSize,0), 
+                  pya.Dpoint(self.pixelSize, self.pixelSize), 
+                  pya.Dpoint((self.minPix/2)*np.sqrt(2), self.pixelSize), 
+                  pya.Dpoint(0, self.pixelSize-(self.minPix/2)*np.sqrt(2))]
+      else:
+        points = [(0,0), 
+                  (self.pixelSize,0), 
+                  (self.pixelSize, self.pixelSize), 
+                  ((self.minPix/2)*np.sqrt(2), self.pixelSize), 
+                  (0, self.pixelSize-(self.minPix/2)*np.sqrt(2))]
+    elif shape == 12:
+      # |-|
+      # | |
+      # \_/
+      if self.sim == 'EMX':
+        points = [pya.Dpoint((self.minPix/2)*np.sqrt(2),0), 
+                  pya.Dpoint(self.pixelSize-(self.minPix/2)*np.sqrt(2),0), 
+                  pya.Dpoint(self.pixelSize, (self.minPix/2)*np.sqrt(2)), 
+                  pya.Dpoint(self.pixelSize, self.pixelSize), 
+                  pya.Dpoint(0, self.pixelSize), 
+                  pya.Dpoint(0, (self.minPix/2)*np.sqrt(2))]
+      else:
+        points = [((self.minPix/2)*np.sqrt(2),0), 
+                  (self.pixelSize-(self.minPix/2)*np.sqrt(2),0), 
+                  (self.pixelSize, (self.minPix/2)*np.sqrt(2)), 
+                  (self.pixelSize, self.pixelSize), 
+                  (0, self.pixelSize), 
+                  (0, (self.minPix/2)*np.sqrt(2))]
+    elif shape == 13:
+      # |-|
+      # | |
+      # |_/
+      if self.sim == 'EMX':
+        points = [pya.Dpoint(0,0), 
+                  pya.Dpoint(self.pixelSize-(self.minPix/2)*np.sqrt(2),0), 
+                  pya.Dpoint(self.pixelSize, (self.minPix/2)*np.sqrt(2)), 
+                  pya.Dpoint(self.pixelSize, self.pixelSize), 
+                  pya.Dpoint(0, self.pixelSize)]
+      else:
+        points = [(0,0), 
+                  (self.pixelSize-(self.minPix/2)*np.sqrt(2),0), 
+                  (self.pixelSize, (self.minPix/2)*np.sqrt(2)), 
+                  (self.pixelSize, self.pixelSize), 
+                  (0, self.pixelSize)]
+    elif shape == 14:
+      # |-|
+      # | |
+      # \_|
+      if self.sim == 'EMX':
+        points = [pya.Dpoint((self.minPix/2)*np.sqrt(2),0), 
+                  pya.Dpoint(self.pixelSize,0), 
+                  pya.Dpoint(self.pixelSize, self.pixelSize), 
+                  pya.Dpoint(0, self.pixelSize), 
+                  pya.Dpoint(0, (self.minPix/2)*np.sqrt(2))]
+      else:
+        points = [((self.minPix/2)*np.sqrt(2),0), 
+                  (self.pixelSize,0), 
+                  (self.pixelSize, self.pixelSize), 
+                  (0, self.pixelSize), 
+                  (0, (self.minPix/2)*np.sqrt(2))]
+    elif shape == 15:
+      # |-\
+      # | |
+      # |_/
+      if self.sim == 'EMX':
+        points = [pya.Dpoint(0,0), 
+                  pya.Dpoint(self.pixelSize-(self.minPix/2)*np.sqrt(2),0), 
+                  pya.Dpoint(self.pixelSize, (self.minPix/2)*np.sqrt(2)), 
+                  pya.Dpoint(self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
+                  pya.Dpoint(self.pixelSize-(self.minPix/2)*np.sqrt(2), self.pixelSize), 
+                  pya.Dpoint(0, self.pixelSize)]
+      else:
+        points = [(0,0), 
+                  (self.pixelSize-(self.minPix/2)*np.sqrt(2),0), 
+                  (self.pixelSize, (self.minPix/2)*np.sqrt(2)), 
+                  (self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
+                  (self.pixelSize-(self.minPix/2)*np.sqrt(2), self.pixelSize), 
+                  (0, self.pixelSize)]
+    elif shape == 16:
+      # /-|
+      # | |
+      # \_|
+      if self.sim == 'EMX':
+        points = [pya.Dpoint((self.minPix/2)*np.sqrt(2),0), 
+                  pya.Dpoint(self.pixelSize,0), 
+                  pya.Dpoint(self.pixelSize, self.pixelSize), 
+                  pya.Dpoint((self.minPix/2)*np.sqrt(2), self.pixelSize), 
+                  pya.Dpoint(0, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
+                  pya.Dpoint(0, (self.minPix/2)*np.sqrt(2))]
+      else:
+        points = [((self.minPix/2)*np.sqrt(2),0), 
+                  (self.pixelSize,0), 
+                  (self.pixelSize, self.pixelSize), 
+                  ((self.minPix/2)*np.sqrt(2), self.pixelSize), 
+                  (0, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
+                  (0, (self.minPix/2)*np.sqrt(2))]
+    elif shape == 17:
+      # |-/
+      # |/
+      # /
+      if self.sim == 'EMX':
+        points = [pya.Dpoint(0,0),
+                  pya.Dpoint(self.pixelSize,self.pixelSize),
+                  pya.Dpoint(0,self.pixelSize)]
+      else:
+        points = [(0,0),
+                  (self.pixelSize,self.pixelSize),
+                  (0,self.pixelSize)]
+    elif shape == 18:
+      # \-|
+      #  \|
+      #   \
+      if self.sim == 'EMX':
+        points = [pya.Dpoint(self.pixelSize,0),
+                  pya.Dpoint(self.pixelSize,self.pixelSize),
+                  pya.Dpoint(0,self.pixelSize)]
+      else:
+        points = [(self.pixelSize,0),
+                  (self.pixelSize,self.pixelSize),
+                  (0,self.pixelSize)]
+    elif shape == 19:
+      #   /
+      #  /|
+      # /_|
+      if self.sim == 'EMX':
+        points = [pya.Dpoint(0,0),
+                  pya.Dpoint(self.pixelSize,0),
+                  pya.Dpoint(self.pixelSize,self.pixelSize)]
+      else:
+        points = [(0,0),
+                  (self.pixelSize,0),
+                  (self.pixelSize,self.pixelSize)]
+    elif shape == 20:
+      # \
+      # |\
+      # |_\
+      if self.sim == 'EMX':
+        points = [pya.Dpoint(0,0),
+                  pya.Dpoint(self.pixelSize,0),
+                  pya.Dpoint(0,self.pixelSize)]
+      else:
+        points = [(0,0),
+                  (self.pixelSize,0),
+                  (0,self.pixelSize)]
+    elif shape == 21:
+      #  /\ 
+      # <  >
+      #  \/
+      if self.sim == 'EMX':
+        points = [pya.Dpoint(self.pixelSize/2,0),
+                  pya.Dpoint(self.pixelSize,self.pixelSize/2),
+                  pya.Dpoint(self.pixelSize/2,self.pixelSize),
+                  pya.Dpoint(0,self.pixelSize/2)]
+      else:
+        points = [(self.pixelSize/2,0),
+                  (self.pixelSize,self.pixelSize/2),
+                  (self.pixelSize/2,self.pixelSize),
+                  (0,self.pixelSize/2)]
+    elif shape == 22:
+      #  /\
+      # ----
+      # 
+      if self.sim == 'EMX':
+        points = [pya.Dpoint(0,self.pixelSize/2),
+                  pya.Dpoint(self.pixelSize,self.pixelSize/2),
+                  pya.Dpoint(self.pixelSize/2,self.pixelSize)]
+      else:
+        points = [(0,self.pixelSize/2),
+                  (self.pixelSize,self.pixelSize/2),
+                  (self.pixelSize/2,self.pixelSize)]
+    elif shape == 23:
+      #  
+      # ----
+      #  \/
+      if self.sim == 'EMX':
+        points = [pya.Dpoint(0,self.pixelSize/2),
+                  pya.Dpoint(self.pixelSize,self.pixelSize/2),
+                  pya.Dpoint(self.pixelSize/2,0)]
+      else:
+        points = [(0,self.pixelSize/2),
+                  (self.pixelSize,self.pixelSize/2),
+                  (self.pixelSize/2,0)]
+    elif shape == 24:
+      #  |\
+      #  | >
+      #  |/
+      if self.sim == 'EMX':
+        points = [pya.Dpoint(self.pixelSize/2,0),
+                  pya.Dpoint(self.pixelSize,self.pixelSize/2),
+                  pya.Dpoint(self.pixelSize/2,self.pixelSize)]
+      else:
+        points = [(self.pixelSize/2,0),
+                  (self.pixelSize,self.pixelSize/2),
+                  (self.pixelSize/2,self.pixelSize)]
+    elif shape == 25:
+      #   /|
+      #  < |
+      #   \|
+      if self.sim == 'EMX':
+        points = [pya.Dpoint(0,self.pixelSize/2),
+                  pya.Dpoint(self.pixelSize,0),
+                  pya.Dpoint(self.pixelSize,self.pixelSize)]
+      else:
+        points = [(0,self.pixelSize/2),
+                  (self.pixelSize,0),
+                  (self.pixelSize,self.pixelSize)]
+    elif shape == 26:
+      #    _
+      #  _| |_
+      # |_   _|
+      #   |_|
+      if self.sim == 'EMX':
+        points = [pya.Dpoint(self.minPix/2,0),
+                  pya.Dpoint(self.pixelSize-self.minPix/2,0),
+                  pya.Dpoint(self.pixelSize-self.minPix/2,self.minPix/2),
+                  pya.Dpoint(self.pixelSize, self.minPix/2),
+                  pya.Dpoint(self.pixelSize, self.pixelSize-self.minPix/2),
+                  pya.Dpoint(self.pixelSize-self.minPix/2,self.pixelSize-self.minPix/2),
+                  pya.Dpoint(self.pixelSize-self.minPix/2,self.pixelSize),
+                  pya.Dpoint(self.minPix/2,self.pixelSize),
+                  pya.Dpoint(self.minPix/2,self.pixelSize-self.minPix/2),
+                  pya.Dpoint(0,self.pixelSize-self.minPix/2),
+                  pya.Dpoint(0,self.minPix/2),
+                  pya.Dpoint(self.minPix/2,self.minPix/2)]
+      else:
+        points = [(self.minPix/2,0),
+                  (self.pixelSize-self.minPix/2,0),
+                  (self.pixelSize-self.minPix/2,self.minPix/2),
+                  (self.pixelSize, self.minPix/2),
+                  (self.pixelSize, self.pixelSize-self.minPix/2),
+                  (self.pixelSize-self.minPix/2,self.pixelSize-self.minPix/2),
+                  (self.pixelSize-self.minPix/2,self.pixelSize),
+                  (self.minPix/2,self.pixelSize),
+                  (self.minPix/2,self.pixelSize-self.minPix/2),
+                  (0,self.pixelSize-self.minPix/2),
+                  (0,self.minPix/2),
+                  (self.minPix/2,self.minPix/2)]
+
+    return points
+  
   def random_gds_dim(self, sub, x_dim: int, y_dim: int, imp: float):
     """
     This script will create a rectangular pixel grid that is x_dim wide by y_dim tall 
@@ -148,6 +587,123 @@ class RandomComponent:
     x_total, y_total, portPos = rd1.gen_port_pos()
 
     pixelMap = np.zeros((int(self.scale*x_total/self.pixelSize),int(self.scale*y_total/self.pixelSize)),dtype=int)
+    pixelMap = rd1.add_launch(x_total,y_total,pixelMap)
+    #pdb.set_trace()
+    pixelMap = rd1.random_pix_rect(x_dim, y_dim, pixelMap)
+
+    pixMap = (np.transpose(pixelMap))
+    rows = np.size(pixMap, 0)
+    cols = np.size(pixMap, 1)
+    if self.corner == 'noverlap' or self.corner == 'overlap':
+      self.shape = 1 # Square pixel must be used for these special cases currently
+    caseMap = pixMap
+    
+    if self.corner == 'noverlap':
+      for x in range(0,cols):
+          for y in range(0,rows):
+            if y > 0 and x > 0 and y < rows-1 and x < cols-1: #Do inner portions of map first, edges will be done last
+              # First, locate all 1 pixels that are surrounded on all edges by 0 pixels
+              # D0D
+              # 010
+              # D0D
+              if caseMap[y,x] == 1 and caseMap[y,x-1] == 0 and caseMap[y,x+1] == 0 and caseMap[y-1,x] == 0 and caseMap[y+1,x] == 0:
+                # First, find all pixels that have 0's adjacent and 1's on all diagonals
+                if caseMap[y+1,x+1] != 0 and caseMap[y+1,x-1] != 0 and caseMap[y-1,x+1] != 0 and caseMap[y-1,x-1] != 0:
+                  caseMap[y,x] = 2
+                # First, find all pixels that have 0's adjacent and 1's on 3/4 diagonals
+                elif caseMap[y+1,x+1] == 0 and caseMap[y+1,x-1] != 0 and caseMap[y-1,x+1] != 0 and caseMap[y-1,x-1] != 0:
+                  caseMap[y,x] = 3
+                elif caseMap[y+1,x+1] != 0 and caseMap[y+1,x-1] == 0 and caseMap[y-1,x+1] != 0 and caseMap[y-1,x-1] != 0:
+                  caseMap[y,x] = 4
+                elif caseMap[y+1,x+1] != 0 and caseMap[y+1,x-1] != 0 and caseMap[y-1,x+1] != 0 and caseMap[y-1,x-1] == 0:
+                  caseMap[y,x] = 5
+                elif caseMap[y+1,x+1] != 0 and caseMap[y+1,x-1] != 0 and caseMap[y-1,x+1] == 0 and caseMap[y-1,x-1] != 0:
+                  caseMap[y,x] = 6
+                # First, find all pixels that have 0's adjacent and 1's on 2/4 diagonals
+                elif caseMap[y+1,x+1] == 0 and caseMap[y+1,x-1] != 0 and caseMap[y-1,x+1] != 0 and caseMap[y-1,x-1] == 0:
+                  caseMap[y,x] = 7
+                elif caseMap[y+1,x+1] != 0 and caseMap[y+1,x-1] == 0 and caseMap[y-1,x+1] == 0 and caseMap[y-1,x-1] != 0:
+                  caseMap[y,x] = 8
+              # First, locate all 1 pixels that are surrounded on right edge by 0 pixels
+              # DDD
+              # D10
+              # DDD
+              if pixMap[y,x] == 1 and pixMap[y,x+1] == 0:
+                if pixMap[y+1,x+1] != 0 and pixMap[y-1,x+1] != 0 and pixMap[y+1,x] == 0 and pixMap[y-1,x] == 0:
+                  caseMap[y,x] = 15
+              # First, locate all 1 pixels that are surrounded on left edge by 0 pixels
+              # DDD
+              # 01D
+              # DDD
+              if pixMap[y,x] == 1 and pixMap[y,x-1] == 0:
+                if pixMap[y+1,x-1] != 0 and pixMap[y-1,x-1] != 0 and pixMap[y+1,x] == 0 and pixMap[y-1,x] == 0:
+                  caseMap[y,x] = 16
+              # First, locate all 1 pixels that are surrounded on top edge by 0 pixels
+              # D0D
+              # D1D
+              # DDD
+              if pixMap[y,x] == 1 and pixMap[y+1,x] == 0:# and (pixMap[y,x+1] == 0 or pixMap[y,x-1] == 0):
+                # First, find all pixels that have 0's adjacent and 1's on top 2 diagonals
+                if pixMap[y+1,x+1] != 0 and pixMap[y+1, x-1] != 0 and pixMap[y,x+1] == 0 and pixMap[y,x-1] == 0:
+                  caseMap[y,x] = 9
+                # First, find all pixels that have 0 right adjacent and 1's on top right diagonal
+                elif pixMap[y+1,x+1] != 0 and pixMap[y,x+1] == 0: 
+                  caseMap[y,x] = 10
+                # First, find all pixels that have 0 left adjacent and 1's on top left diagonal
+                elif pixMap[y+1,x-1] != 0 and pixMap[y,x-1] == 0: 
+                  caseMap[y,x] = 11
+              # First, locate all 1 pixels that are surrounded on bottom edge by 0 pixels
+              # DDD
+              # D1D
+              # D0D
+              if pixMap[y,x] == 1 and pixMap[y-1,x] == 0:# and (pixMap[y,x+1] == 0 or pixMap[y,x-1] == 0):
+                # First, find all pixels that have 0's adjacent and 1's on bottom 2 diagonals
+                if pixMap[y-1,x+1] != 0 and pixMap[y-1, x-1] != 0 and pixMap[y,x+1] == 0 and pixMap[y,x-1] == 0:
+                  caseMap[y,x] = 12
+                # First, find all pixels that have 0 right adjacent and 1's on bottom right diagonal
+                elif pixMap[y-1,x+1] != 0 and pixMap[y,x+1] == 0: 
+                  caseMap[y,x] = 13
+                # First, find all pixels that have 0 left adjacent and 1's on bottom left diagonal
+                elif pixMap[y-1,x-1] != 0 and pixMap[y,x-1] == 0: 
+                  caseMap[y,x] = 14
+            if y == 0 and x > 0 and x < cols-1: #Do bottom row
+              # First, locate all 1 pixels that are surrounded on top edge by 0 pixels
+              # D0D
+              # D1D
+              # DDD
+              if pixMap[y,x] == 1 and pixMap[y+1,x] == 0:# and (pixMap[y,x+1] == 0 or pixMap[y,x-1] == 0):
+                # First, find all pixels that have 0's adjacent and 1's on top 2 diagonals
+                if pixMap[y+1,x+1] != 0 and pixMap[y+1, x-1] != 0 and pixMap[y,x+1] == 0 and pixMap[y,x-1] == 0:
+                  caseMap[y,x] = 9
+                # First, find all pixels that have 0 right adjacent and 1's on top right diagonal
+                elif pixMap[y+1,x+1] != 0 and pixMap[y,x+1] == 0: 
+                  caseMap[y,x] = 10
+                # First, find all pixels that have 0 left adjacent and 1's on top left diagonal
+                elif pixMap[y+1,x-1] != 0 and pixMap[y,x-1] == 0: 
+                  caseMap[y,x] = 11
+            if y == rows-1 and x > 0 and x < cols-1: #Do top row
+              if pixMap[y,x] == 1 and pixMap[y-1,x] == 0:# and (pixMap[y,x+1] == 0 or pixMap[y,x-1] == 0):
+                # First, find all pixels that have 0's adjacent and 1's on bottom 2 diagonals
+                if pixMap[y-1,x+1] != 0 and pixMap[y-1, x-1] != 0 and pixMap[y,x+1] == 0 and pixMap[y,x-1] == 0:
+                  caseMap[y,x] = 12
+                # First, find all pixels that have 0 right adjacent and 1's on bottom right diagonal
+                elif pixMap[y-1,x+1] != 0 and pixMap[y,x+1] == 0: 
+                  caseMap[y,x] = 13
+                # First, find all pixels that have 0 left adjacent and 1's on bottom left diagonal
+                elif pixMap[y-1,x-1] != 0 and pixMap[y,x-1] == 0: 
+                  caseMap[y,x] = 14
+            if y > 0 and x == 0 and y < rows-1: #Do first column
+              if pixMap[y,x] == 1 and pixMap[y+1,x] == 0:# and (pixMap[y,x+1] == 0 or pixMap[y,x-1] == 0):
+                # First, find all pixels that have 0 right adjacent and 1's on top right diagonal
+                if pixMap[y+1,x+1] != 0 and pixMap[y,x+1] == 0: 
+                  caseMap[y,x] = 10
+                # First, find all pixels that have 0 right adjacent and 1's on bottom right diagonal
+              if pixMap[y,x] == 1 and pixMap[y-1,x] == 0:# and (pixMap[y,x+1] == 0 or pixMap[y,x-1] == 0):
+                if pixMap[y-1,x+1] != 0 and pixMap[y,x+1] == 0: 
+                  caseMap[y,x] = 13
+              if pixMap[y,x] == 1 and pixMap[y,x+1] == 0:
+                if pixMap[y+1,x+1] != 0 and pixMap[y-1,x+1] != 0 and pixMap[y+1,x] == 0 and pixMap[y-1,x] == 0:
+                  caseMap[y,x] = 15
 
     if self.sim == 'EMX':
       ly = pya.Layout()
@@ -171,18 +727,15 @@ class RandomComponent:
       for x in range(0, int(self.scale*x_total/self.pixelSize)):
         rect = UNIT.shapes(l_bottom).insert( pya.Box(0, 0, self.scale, self.scale*y_total).moved((x+0.5)*self.pixelSize-5,0))
 
-      #outline = UNIT.shapes(l_bottom).insert( pya.Box(0, 0, x_total, y_total) ) 
-      
-      pixelMap = rd1.add_launch(x_total,y_total,pixelMap)
-      #pdb.set_trace()
-      pixelMap = rd1.random_pix_rect(x_dim, y_dim, pixelMap)
+      if self.corner == 'noverlap':
+        for x in range(0, cols):
+          for y in range(0, rows):
+            if pixMap[y,x]  == 1:
+              points = self.pixel_shape(caseMap[y,x])
+              poly = pya.DPolygon(points).moved(x*self.pixelSize,y*self.pixelSize)
+              UNIT.shapes(l_top).insert(poly)
 
-      pixMap = (np.transpose(pixelMap))
-      rows = np.size(pixMap, 0)
-      cols = np.size(pixMap, 1)
-      #print(rows, cols)
-      #print(pixelMap)
-      if self.corner == 'overlap':
+      elif self.corner == 'overlap':
         for x in range(0, cols):
           for y in range(0, rows):
             if pixMap[y,x]  == 1:
@@ -205,6 +758,15 @@ class RandomComponent:
             if pixMap[y,x] == 1 and pixMap[y+1,x-1] == 1:
               diam = pya.DPolygon(points).moved((x)*self.pixelSize/10,(y+1)*self.pixelSize/10)
               UNIT.shapes(l_top).insert(diam)
+      else: #Standard pixel
+        for x in range(0, cols):
+          for y in range(0, rows):
+            if pixMap[y,x]  == 1:
+              points = self.pixel_shape(self.shape)
+              poly = pya.DPolygon(points).moved(x*self.pixelSize,\
+                     y*self.pixelSize)
+              UNIT.shapes(l_top).insert(poly)
+
       #pdb.set_trace()
       if self.ports == 1:
         port_1 = UNIT.shapes(l_top).insert( pya.Text('p1', portPos[0]/self.scale, portPos[1]/self.scale) )
@@ -311,273 +873,19 @@ class RandomComponent:
           UNIT.add(poly4)
           UNIT.add(poly5)
 
-      pixelMap = rd1.add_launch(x_total,y_total,pixelMap)
-      pixelMap = rd1.random_pix_rect(x_dim, y_dim, pixelMap)
 
-      pixMap = (np.transpose(pixelMap))
-      rows = np.size(pixMap, 0)
-      cols = np.size(pixMap, 1)
-      #print(rows, cols)
-
-      caseMap = pixMap
-
-      # When gds is fabricated it naturally creates overlap in the corners because of underetch of the metal. This routine 
-      # creates non-overlapping polygons with enough space for manufacture. Space should be 6mil for PCB and typically 2um
-      # in thick metal for ICs (A 0 in the pixel map corresponds to no metal and a 1 corresponds to metal
-      if self.corner == 'noverlap': 
+      if self.corner == 'noverlap':       
         for x in range(0,cols):
-          for y in range(0,rows):
-            if y > 0 and x > 0 and y < rows-1 and x < cols-1: #Do inner portions of map first, edges will be done last
-              # First, locate all 1 pixels that are surrounded on all edges by 0 pixels
-              # D0D
-              # 010
-              # D0D
-              if caseMap[y,x] == 1 and caseMap[y,x-1] == 0 and caseMap[y,x+1] == 0 and caseMap[y-1,x] == 0 and caseMap[y+1,x] == 0:
-                # First, find all pixels that have 0's adjacent and 1's on all diagonals
-                if caseMap[y+1,x+1] != 0 and caseMap[y+1,x-1] != 0 and caseMap[y-1,x+1] != 0 and caseMap[y-1,x-1] != 0:
-                  caseMap[y,x] = 2
-                # First, find all pixels that have 0's adjacent and 1's on 3/4 diagonals
-                elif caseMap[y+1,x+1] == 0 and caseMap[y+1,x-1] != 0 and caseMap[y-1,x+1] != 0 and caseMap[y-1,x-1] != 0:
-                  caseMap[y,x] = 3
-                elif caseMap[y+1,x+1] != 0 and caseMap[y+1,x-1] == 0 and caseMap[y-1,x+1] != 0 and caseMap[y-1,x-1] != 0:
-                  caseMap[y,x] = 4
-                elif caseMap[y+1,x+1] != 0 and caseMap[y+1,x-1] != 0 and caseMap[y-1,x+1] != 0 and caseMap[y-1,x-1] == 0:
-                  caseMap[y,x] = 5
-                elif caseMap[y+1,x+1] != 0 and caseMap[y+1,x-1] != 0 and caseMap[y-1,x+1] == 0 and caseMap[y-1,x-1] != 0:
-                  caseMap[y,x] = 6
-                # First, find all pixels that have 0's adjacent and 1's on 2/4 diagonals
-                elif caseMap[y+1,x+1] == 0 and caseMap[y+1,x-1] != 0 and caseMap[y-1,x+1] != 0 and caseMap[y-1,x-1] == 0:
-                  caseMap[y,x] = 7
-                elif caseMap[y+1,x+1] != 0 and caseMap[y+1,x-1] == 0 and caseMap[y-1,x+1] == 0 and caseMap[y-1,x-1] != 0:
-                  caseMap[y,x] = 8
-              # First, locate all 1 pixels that are surrounded on right edge by 0 pixels
-              # DDD
-              # D10
-              # DDD
-              if pixMap[y,x] == 1 and pixMap[y,x+1] == 0:
-                if pixMap[y+1,x+1] != 0 and pixMap[y-1,x+1] != 0 and pixMap[y+1,x] == 0 and pixMap[y-1,x] == 0:
-                  caseMap[y,x] = 15
-              # First, locate all 1 pixels that are surrounded on left edge by 0 pixels
-              # DDD
-              # 01D
-              # DDD
-              if pixMap[y,x] == 1 and pixMap[y,x-1] == 0:
-                if pixMap[y+1,x-1] != 0 and pixMap[y-1,x-1] != 0 and pixMap[y+1,x] == 0 and pixMap[y-1,x] == 0:
-                  caseMap[y,x] = 16
-              # First, locate all 1 pixels that are surrounded on top edge by 0 pixels
-              # D0D
-              # D1D
-              # DDD
-              if pixMap[y,x] == 1 and pixMap[y+1,x] == 0:# and (pixMap[y,x+1] == 0 or pixMap[y,x-1] == 0):
-                # First, find all pixels that have 0's adjacent and 1's on top 2 diagonals
-                if pixMap[y+1,x+1] != 0 and pixMap[y+1, x-1] != 0 and pixMap[y,x+1] == 0 and pixMap[y,x-1] == 0:
-                  caseMap[y,x] = 9
-                # First, find all pixels that have 0 right adjacent and 1's on top right diagonal
-                elif pixMap[y+1,x+1] != 0 and pixMap[y,x+1] == 0: 
-                  caseMap[y,x] = 10
-                # First, find all pixels that have 0 left adjacent and 1's on top left diagonal
-                elif pixMap[y+1,x-1] != 0 and pixMap[y,x-1] == 0: 
-                  caseMap[y,x] = 11
-              # First, locate all 1 pixels that are surrounded on bottom edge by 0 pixels
-              # DDD
-              # D1D
-              # D0D
-              if pixMap[y,x] == 1 and pixMap[y-1,x] == 0:# and (pixMap[y,x+1] == 0 or pixMap[y,x-1] == 0):
-                # First, find all pixels that have 0's adjacent and 1's on bottom 2 diagonals
-                if pixMap[y-1,x+1] != 0 and pixMap[y-1, x-1] != 0 and pixMap[y,x+1] == 0 and pixMap[y,x-1] == 0:
-                  caseMap[y,x] = 12
-                # First, find all pixels that have 0 right adjacent and 1's on bottom right diagonal
-                elif pixMap[y-1,x+1] != 0 and pixMap[y,x+1] == 0: 
-                  caseMap[y,x] = 13
-                # First, find all pixels that have 0 left adjacent and 1's on bottom left diagonal
-                elif pixMap[y-1,x-1] != 0 and pixMap[y,x-1] == 0: 
-                  caseMap[y,x] = 14
-            if y == 0 and x > 0 and x < cols-1: #Do bottom row
-              # First, locate all 1 pixels that are surrounded on top edge by 0 pixels
-              # D0D
-              # D1D
-              # DDD
-              if pixMap[y,x] == 1 and pixMap[y+1,x] == 0:# and (pixMap[y,x+1] == 0 or pixMap[y,x-1] == 0):
-                # First, find all pixels that have 0's adjacent and 1's on top 2 diagonals
-                if pixMap[y+1,x+1] != 0 and pixMap[y+1, x-1] != 0 and pixMap[y,x+1] == 0 and pixMap[y,x-1] == 0:
-                  caseMap[y,x] = 9
-                # First, find all pixels that have 0 right adjacent and 1's on top right diagonal
-                elif pixMap[y+1,x+1] != 0 and pixMap[y,x+1] == 0: 
-                  caseMap[y,x] = 10
-                # First, find all pixels that have 0 left adjacent and 1's on top left diagonal
-                elif pixMap[y+1,x-1] != 0 and pixMap[y,x-1] == 0: 
-                  caseMap[y,x] = 11
-            if y == rows-1 and x > 0 and x < cols-1: #Do top row
-              if pixMap[y,x] == 1 and pixMap[y-1,x] == 0:# and (pixMap[y,x+1] == 0 or pixMap[y,x-1] == 0):
-                # First, find all pixels that have 0's adjacent and 1's on bottom 2 diagonals
-                if pixMap[y-1,x+1] != 0 and pixMap[y-1, x-1] != 0 and pixMap[y,x+1] == 0 and pixMap[y,x-1] == 0:
-                  caseMap[y,x] = 12
-                # First, find all pixels that have 0 right adjacent and 1's on bottom right diagonal
-                elif pixMap[y-1,x+1] != 0 and pixMap[y,x+1] == 0: 
-                  caseMap[y,x] = 13
-                # First, find all pixels that have 0 left adjacent and 1's on bottom left diagonal
-                elif pixMap[y-1,x-1] != 0 and pixMap[y,x-1] == 0: 
-                  caseMap[y,x] = 14
-            if y > 0 and x == 0 and y < rows-1: #Do first column
-              if pixMap[y,x] == 1 and pixMap[y+1,x] == 0:# and (pixMap[y,x+1] == 0 or pixMap[y,x-1] == 0):
-                # First, find all pixels that have 0 right adjacent and 1's on top right diagonal
-                if pixMap[y+1,x+1] != 0 and pixMap[y,x+1] == 0: 
-                  caseMap[y,x] = 10
-                # First, find all pixels that have 0 right adjacent and 1's on bottom right diagonal
-              if pixMap[y,x] == 1 and pixMap[y-1,x] == 0:# and (pixMap[y,x+1] == 0 or pixMap[y,x-1] == 0):
-                if pixMap[y-1,x+1] != 0 and pixMap[y,x+1] == 0: 
-                  caseMap[y,x] = 13
-              if pixMap[y,x] == 1 and pixMap[y,x+1] == 0:
-                if pixMap[y+1,x+1] != 0 and pixMap[y-1,x+1] != 0 and pixMap[y+1,x] == 0 and pixMap[y-1,x] == 0:
-                  caseMap[y,x] = 15
-
-        for x in range(0,cols):
-          for y in range(0,rows):
-            if caseMap[y,x] == 1:
-              rect = gdspy.Rectangle((0, 0), (self.pixelSize, self.pixelSize), **l_top).translate(x*self.pixelSize,\
-                     y*self.pixelSize)
-              UNIT.add(rect)
-            if caseMap[y,x] == 2:
-              points = [((self.minPix/2)*np.sqrt(2),0), 
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2),0), 
-                        (self.pixelSize, (self.minPix/2)*np.sqrt(2)), 
-                        (self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2), self.pixelSize), 
-                        ((self.minPix/2)*np.sqrt(2),self.pixelSize),
-                        (0, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
-                        (0, (self.minPix/2)*np.sqrt(2))]
+          for y in range(0, rows):
+            if pixMap[y,x]  == 1:
+              points = self.pixel_shape(caseMap[y,x])
               poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,y*self.pixelSize)
               UNIT.add(poly)
-            if caseMap[y,x] == 3:
-              points = [((self.minPix/2)*np.sqrt(2),0), 
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2),0), 
-                        (self.pixelSize, (self.minPix/2)*np.sqrt(2)), 
-                        (self.pixelSize, self.pixelSize), 
-                        ((self.minPix/2)*np.sqrt(2),self.pixelSize),
-                        (0, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
-                        (0, (self.minPix/2)*np.sqrt(2))]
-              poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,y*self.pixelSize)
-              UNIT.add(poly)
-            if caseMap[y,x] == 4:
-              points = [((self.minPix/2)*np.sqrt(2),0), 
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2),0), 
-                        (self.pixelSize, (self.minPix/2)*np.sqrt(2)), 
-                        (self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2),self.pixelSize),
-                        (0, self.pixelSize), 
-                        (0, (self.minPix/2)*np.sqrt(2))]
-              poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,y*self.pixelSize)
-              UNIT.add(poly)
-            if caseMap[y,x] == 5:
-              points = [(0,0),                                            #  _ 7-sided polygon 
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2),0),                  # / \
-                        (self.pixelSize, (self.minPix/2)*np.sqrt(2)),                   #|   |
-                        (self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)),    #|___/
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2),self.pixelSize),
-                        ((self.minPix/2)*np.sqrt(2), self.pixelSize), 
-                        (0, self.pixelSize-(self.minPix/2)*np.sqrt(2))]
-              poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,y*self.pixelSize)
-              UNIT.add(poly)
-            if caseMap[y,x] == 6:
-              points = [((self.minPix/2)*np.sqrt(2),0), 
-                        (self.pixelSize,0), 
-                        (self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2), self.pixelSize), 
-                        ((self.minPix/2)*np.sqrt(2),self.pixelSize),
-                        (0, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
-                        (0, (self.minPix/2)*np.sqrt(2))]
-              poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,y*self.pixelSize)
-              UNIT.add(poly)
-            if caseMap[y,x] == 7:
-              points = [(0,0), 
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2),0), 
-                        (self.pixelSize, (self.minPix/2)*np.sqrt(2)), 
-                        (self.pixelSize, self.pixelSize), 
-                        ((self.minPix/2)*np.sqrt(2), self.pixelSize),
-                        (0,self.pixelSize-(self.minPix/2)*np.sqrt(2))]
-              poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,y*self.pixelSize)
-              UNIT.add(poly)
-            if caseMap[y,x] == 8:
-              points = [((self.minPix/2)*np.sqrt(2),0), 
-                        (self.pixelSize,0), 
-                        (self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2), self.pixelSize), 
-                        (0, self.pixelSize),
-                        (0,(self.minPix/2)*np.sqrt(2))]
-              poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,y*self.pixelSize)
-              UNIT.add(poly)
-            if caseMap[y,x] == 9:
-              points = [(0,0), 
-                        (self.pixelSize,0), 
-                        (self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2), self.pixelSize), 
-                        ((self.minPix/2)*np.sqrt(2), self.pixelSize), 
-                        (0, self.pixelSize-(self.minPix/2)*np.sqrt(2))]
-              poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,y*self.pixelSize)
-              UNIT.add(poly)
-            if caseMap[y,x] == 10:
-              points = [(0,0), 
-                        (self.pixelSize,0), 
-                        (self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2), self.pixelSize), 
-                        (0, self.pixelSize)]
-              poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,y*self.pixelSize)
-              UNIT.add(poly)
-            if caseMap[y,x] == 11:
-              points = [(0,0), 
-                        (self.pixelSize,0), 
-                        (self.pixelSize, self.pixelSize), 
-                        ((self.minPix/2)*np.sqrt(2), self.pixelSize), 
-                        (0, self.pixelSize-(self.minPix/2)*np.sqrt(2))]
-              poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,y*self.pixelSize)
-              UNIT.add(poly)
-            if caseMap[y,x] == 12:
-              points = [((self.minPix/2)*np.sqrt(2),0), 
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2),0), 
-                        (self.pixelSize, (self.minPix/2)*np.sqrt(2)), 
-                        (self.pixelSize, self.pixelSize), 
-                        (0, self.pixelSize), 
-                        (0, (self.minPix/2)*np.sqrt(2))]
-              poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,y*self.pixelSize)
-              UNIT.add(poly)
-            if caseMap[y,x] == 13:
-              points = [(0,0), 
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2),0), 
-                        (self.pixelSize, (self.minPix/2)*np.sqrt(2)), 
-                        (self.pixelSize, self.pixelSize), 
-                        (0, self.pixelSize)]
-              poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,y*self.pixelSize)
-              UNIT.add(poly)
-            if caseMap[y,x] == 14:
-              points = [((self.minPix/2)*np.sqrt(2),0), 
-                        (self.pixelSize,0), 
-                        (self.pixelSize, self.pixelSize), 
-                        (0, self.pixelSize), 
-                        (0, (self.minPix/2)*np.sqrt(2))]
-              poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,y*self.pixelSize)
-              UNIT.add(poly)
-            if caseMap[y,x] == 15:
-              points = [(0,0), 
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2),0), 
-                        (self.pixelSize, (self.minPix/2)*np.sqrt(2)), 
-                        (self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2), self.pixelSize), 
-                        (0, self.pixelSize)]
-              poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,y*self.pixelSize)
-              UNIT.add(poly)
-            if caseMap[y,x] == 16:
-              points = [((self.minPix/2)*np.sqrt(2),0), 
-                        (self.pixelSize,0), 
-                        (self.pixelSize, self.pixelSize), 
-                        ((self.minPix/2)*np.sqrt(2), self.pixelSize), 
-                        (0, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
-                        (0, (self.minPix/2)*np.sqrt(2))]
-              poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,y*self.pixelSize)
-              UNIT.add(poly)
+        
         pixelMap[pixelMap > 1] = 1 #Don't know why this variable is changing in the loop above, but this is a temporary fix. 
                                    #only caseMap gets written in the code, but pixelMap changes with caseMap, so this restores
                                    #pixelMap to proper value
-
+        
       elif self.corner == 'overlap':
         for x in range(0, cols):
           for y in range(0, rows):
@@ -605,10 +913,17 @@ class RandomComponent:
         for x in range(0, cols):
           for y in range(0, rows):
             if pixMap[y,x]  == 1:
-              rect = gdspy.Rectangle((0, 0), (self.pixelSize, self.pixelSize), **l_top).translate(x*self.pixelSize,\
-                     y*self.pixelSize)
-              UNIT.add(rect)
-
+              if x < launch_l_pixels or x > cols - launch_l_pixels - 1: # Launch pixels
+                points = self.pixel_shape(1)
+                poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,\
+                      y*self.pixelSize)
+                UNIT.add(poly)
+              else: # x > launch_l_pixels-1:
+                points = self.pixel_shape(self.shape)
+                poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,\
+                      y*self.pixelSize)
+                UNIT.add(poly)
+        
       # Draw outline
       #pixelMap = np.zeros((int(x_total/self.pixelSize),int(y_total/self.pixelSize)),dtype=int)
       outline = gdspy.Rectangle((0, 0), (x_total, y_total), **l_bottom)
@@ -636,33 +951,38 @@ class RandomComponent:
     return portPos, x_total, y_total, csvFile, gdsFile, cellName, launch_l_pixels
 
   def recreate_gds_file(rrfc,sub,imp):
-
+    print("Recreating GDS file with the same parameters as before...")
+    if self.portPos == '':
+      # Pixel Size
+      launch_l_pixels, launch_w_pixels, width_launch, length_launch = self._calc_launch_pixels(sub, imp)
+      print("The width and length of your launches (in pixels) are: ", launch_w_pixels, " and ", launch_l_pixels)
+      rd1 = RandomDesign(
+          self.unit, 
+          cols-2*launch_l_pixels, 
+          rows, 
+          self.ports,
+          self.sides, 
+          launch_l_pixels, 
+          launch_w_pixels,
+          self.pixelSize,
+          self.scale,
+          self.sim, 
+          self.sym, 
+          self.seed
+      )
+        
+    else:
+      portPos = self.portPos
+      x_total = cols*self.pixelSize
+      y_total = rows*self.pixelSize
+  
     pixMap = np.flipud(np.loadtxt(self.outF, delimiter=','))
     rows = np.size(pixMap, 0)
     cols = np.size(pixMap, 1)
+
     if self.sim == 'EMX':
 
-      if self.portPos == '':
-        # In EMX sims, ports are defined on metal layers. They are added here, so port position needs to be computed
-        width_launch, length_launch = MicrostripCalc.synth_microstrip(sub, imp, self.launchLen)
-        width_launch = self.layoutRes*width_launch # Convert from mils to layout resolution. layoutRes defaults to 1 for mils
-        length_launch = self.layoutRes*length_launch # Convert from mils to layout resolution. layoutRes defaults to 1 for mils
-        if width_launch < self.pixelSize: # Make sure that launch is at least 1 pixel wide
-          width_launch = self.pixelSize
-        if length_launch < self.pixelSize: # Make sure that launch is at least 1 pixel long
-          length_launch = self.pixelSize
-        launch_l_pixels = round(length_launch/self.pixelSize) # length of the line to connect to structure in number of pixels
-        launch_w_pixels = round(width_launch/self.pixelSize) # width of the line to connect to structure in number of pixels
-        rd1 = RandomDesign(self.unit, cols-2*launch_l_pixels, rows, self.ports,\
-                           self.sides, launch_l_pixels, launch_w_pixels, \
-                           self.pixelSize,self.scale,self.sim,self.sym,self.seed)
 
-        x_total, y_total, portPos = RandomDesign.gen_port_pos(rd1)    
-
-      else:
-        portPos = self.portPos
-        x_total = cols*self.pixelSize
-        y_total = rows*self.pixelSize
       
       ly = pya.Layout()
       # Set the database unit to 1 um. Generally for EMX it is easier to work in um.
@@ -1375,8 +1695,7 @@ class RandomComponent:
     # Export GDS
     lib.write_gds(gdsFile)
 
-  def print_image(rrfc):
-
+  def print_image(self, sub, imp):
     lib = gdspy.GdsLibrary()
 
     # Set the database unit to 1 mil
@@ -1391,8 +1710,7 @@ class RandomComponent:
     l_top = {"layer": 11, "datatype": 0}
     l_sources = {"layer": 5, "datatype": 0}
 
-    pixMap = np.flipud(np.loadtxt(self.outF, delimiter=','))
-    print(pixMap)
+    pixMap = np.flipud(np.loadtxt(self.outF+'.csv', delimiter=',').astype(int)) # Load the pixel map from the csv file and flip it vertically
     rows = np.size(pixMap, 0)
     cols = np.size(pixMap, 1)
     print(rows, cols)
@@ -1400,6 +1718,7 @@ class RandomComponent:
     outline = gdspy.Rectangle((0, 0), (cols*self.pixelSize, rows*self.pixelSize), **l_bottom)
     UNIT.add(outline) 
 
+    launch_l_pixels, launch_w_pixels, width_launch, length_launch = self._calc_launch_pixels(sub, imp)    
     # When gds is fabricated it naturally creates overlap in the corners because of underetch of the metal. This routine 
     # creates non-overlapping polygons with enough space for manufacture. Space should be 6mil for PCB and typically 2um
     # in thick metal for ICs (A 0 in the pixel map corresponds to no metal and a 1 corresponds to metal
@@ -1511,155 +1830,21 @@ class RandomComponent:
                 if pixMap[y+1,x+1] != 0 and pixMap[y-1,x+1] != 0 and pixMap[y+1,x] == 0 and pixMap[y-1,x] == 0:
                   caseMap[y,x] = 15
         for x in range(0,cols):
-          for y in range(0,rows):
-            if caseMap[y,x] == 1:
-              rect = gdspy.Rectangle((0, 0), (self.pixelSize, self.pixelSize), **l_top).translate(x*self.pixelSize,\
-                     y*self.pixelSize)
-              UNIT.add(rect)
-            if caseMap[y,x] == 2:
-              points = [((self.minPix/2)*np.sqrt(2),0), 
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2),0), 
-                        (self.pixelSize, (self.minPix/2)*np.sqrt(2)), 
-                        (self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2), self.pixelSize), 
-                        ((self.minPix/2)*np.sqrt(2),self.pixelSize),
-                        (0, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
-                        (0, (self.minPix/2)*np.sqrt(2))]
+          for y in range(0, rows):
+            if pixMap[y,x]  == 1:
+              points = self.pixel_shape(caseMap[y,x])
               poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,y*self.pixelSize)
               UNIT.add(poly)
-            if caseMap[y,x] == 3:
-              points = [((self.minPix/2)*np.sqrt(2),0), 
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2),0), 
-                        (self.pixelSize, (self.minPix/2)*np.sqrt(2)), 
-                        (self.pixelSize, self.pixelSize), 
-                        ((self.minPix/2)*np.sqrt(2),self.pixelSize),
-                        (0, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
-                        (0, (self.minPix/2)*np.sqrt(2))]
-              poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,y*self.pixelSize)
-              UNIT.add(poly)
-            if caseMap[y,x] == 4:
-              points = [((self.minPix/2)*np.sqrt(2),0), 
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2),0), 
-                        (self.pixelSize, (self.minPix/2)*np.sqrt(2)), 
-                        (self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2),self.pixelSize),
-                        (0, self.pixelSize), 
-                        (0, (self.minPix/2)*np.sqrt(2))]
-              poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,y*self.pixelSize)
-              UNIT.add(poly)
-            if caseMap[y,x] == 5:
-              points = [(0,0),                                            #  _ 7-sided polygon 
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2),0),                  # / \
-                        (self.pixelSize, (self.minPix/2)*np.sqrt(2)),                   #|   |
-                        (self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)),    #|___/
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2),self.pixelSize),
-                        ((self.minPix/2)*np.sqrt(2), self.pixelSize), 
-                        (0, self.pixelSize-(self.minPix/2)*np.sqrt(2))]
-              poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,y*self.pixelSize)
-              UNIT.add(poly)
-            if caseMap[y,x] == 6:
-              points = [((self.minPix/2)*np.sqrt(2),0), 
-                        (self.pixelSize,0), 
-                        (self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2), self.pixelSize), 
-                        ((self.minPix/2)*np.sqrt(2),self.pixelSize),
-                        (0, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
-                        (0, (self.minPix/2)*np.sqrt(2))]
-              poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,y*self.pixelSize)
-              UNIT.add(poly)
-            if caseMap[y,x] == 7:
-              points = [(0,0), 
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2),0), 
-                        (self.pixelSize, (self.minPix/2)*np.sqrt(2)), 
-                        (self.pixelSize, self.pixelSize), 
-                        ((self.minPix/2)*np.sqrt(2), self.pixelSize),
-                        (0,self.pixelSize-(self.minPix/2)*np.sqrt(2))]
-              poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,y*self.pixelSize)
-              UNIT.add(poly)
-            if caseMap[y,x] == 8:
-              points = [((self.minPix/2)*np.sqrt(2),0), 
-                        (self.pixelSize,0), 
-                        (self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2), self.pixelSize), 
-                        (0, self.pixelSize),
-                        (0,(self.minPix/2)*np.sqrt(2))]
-              poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,y*self.pixelSize)
-              UNIT.add(poly)
-            if caseMap[y,x] == 9:
-              points = [(0,0), 
-                        (self.pixelSize,0), 
-                        (self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2), self.pixelSize), 
-                        ((self.minPix/2)*np.sqrt(2), self.pixelSize), 
-                        (0, self.pixelSize-(self.minPix/2)*np.sqrt(2))]
-              poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,y*self.pixelSize)
-              UNIT.add(poly)
-            if caseMap[y,x] == 10:
-              points = [(0,0), 
-                        (self.pixelSize,0), 
-                        (self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2), self.pixelSize), 
-                        (0, self.pixelSize)]
-              poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,y*self.pixelSize)
-              UNIT.add(poly)
-            if caseMap[y,x] == 11:
-              points = [(0,0), 
-                        (self.pixelSize,0), 
-                        (self.pixelSize, self.pixelSize), 
-                        ((self.minPix/2)*np.sqrt(2), self.pixelSize), 
-                        (0, self.pixelSize-(self.minPix/2)*np.sqrt(2))]
-              poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,y*self.pixelSize)
-              UNIT.add(poly)
-            if caseMap[y,x] == 12:
-              points = [((self.minPix/2)*np.sqrt(2),0), 
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2),0), 
-                        (self.pixelSize, (self.minPix/2)*np.sqrt(2)), 
-                        (self.pixelSize, self.pixelSize), 
-                        (0, self.pixelSize), 
-                        (0, (self.minPix/2)*np.sqrt(2))]
-              poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,y*self.pixelSize)
-              UNIT.add(poly)
-            if caseMap[y,x] == 13:
-              points = [(0,0), 
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2),0), 
-                        (self.pixelSize, (self.minPix/2)*np.sqrt(2)), 
-                        (self.pixelSize, self.pixelSize), 
-                        (0, self.pixelSize)]
-              poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,y*self.pixelSize)
-              UNIT.add(poly)
-            if caseMap[y,x] == 14:
-              points = [((self.minPix/2)*np.sqrt(2),0), 
-                        (self.pixelSize,0), 
-                        (self.pixelSize, self.pixelSize), 
-                        (0, self.pixelSize), 
-                        (0, (self.minPix/2)*np.sqrt(2))]
-              poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,y*self.pixelSize)
-              UNIT.add(poly)
-            if caseMap[y,x] == 15:
-              points = [(0,0), 
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2),0), 
-                        (self.pixelSize, (self.minPix/2)*np.sqrt(2)), 
-                        (self.pixelSize, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
-                        (self.pixelSize-(self.minPix/2)*np.sqrt(2), self.pixelSize), 
-                        (0, self.pixelSize)]
-              poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,y*self.pixelSize)
-              UNIT.add(poly)
-            if caseMap[y,x] == 16:
-              points = [((self.minPix/2)*np.sqrt(2),0), 
-                        (self.pixelSize,0), 
-                        (self.pixelSize, self.pixelSize), 
-                        ((self.minPix/2)*np.sqrt(2), self.pixelSize), 
-                        (0, self.pixelSize-(self.minPix/2)*np.sqrt(2)), 
-                        (0, (self.minPix/2)*np.sqrt(2))]
-              poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,y*self.pixelSize)
-              UNIT.add(poly)
-
+          
     elif self.corner == 'overlap':
       for x in range(0, cols):
         for y in range(0, rows):
           if pixMap[y,x]  == 1:
-            rect = gdspy.Rectangle((0, 0), (self.pixelSize, self.pixelSize), **l_top).translate(x*self.pixelSize,\
-                   y*self.pixelSize)
+            points = self.pixel_shape(1)
+            rect = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,\
+                  y*self.pixelSize)
+            #rect = gdspy.Rectangle((0, 0), (self.pixelSize, self.pixelSize), **l_top).translate(x*self.pixelSize,\
+            #       y*self.pixelSize)
             UNIT.add(rect)
 
       for x in range(0,cols-1):
@@ -1678,24 +1863,36 @@ class RandomComponent:
                                    translate((x)*self.pixelSize,(y+1)*self.pixelSize)
             UNIT.add(diam)
     else: # Mo Geometric Modifications
-      for x in range(0, cols):
-        for y in range(0, rows):
-          if pixMap[y,x]  == 1:
-            rect = gdspy.Rectangle((0, 0), (self.pixelSize, self.pixelSize), **l_top).translate(x*self.pixelSize,\
-                   y*self.pixelSize)
-            UNIT.add(rect)
-
-    svgFile = self.outF.replace('csv', 'svg')  
+        for x in range(0, cols):
+          for y in range(0, rows):
+            if pixMap[y,x]  == 1:
+              if x < launch_l_pixels or x > cols - launch_l_pixels - 1: # Launch pixels
+                points = self.pixel_shape(1)
+                poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,\
+                      y*self.pixelSize)
+                UNIT.add(poly)
+              else: # x > launch_l_pixels-1:
+                points = self.pixel_shape(self.shape)
+                poly = gdspy.Polygon(points, **l_top).translate(x*self.pixelSize,\
+                      y*self.pixelSize)
+                UNIT.add(poly)
+        
+    
+    import cairosvg
+    base = self.outF
+    if base.lower().endswith('.csv'):
+      base = base[:-4]  
+    csvFile = base + '.csv'
+    svgFile = base + '.svg'
+    pngFile = base + '.png'
+    
+    #svgFile = self.outF.replace('csv', 'svg')  
+    print('Done with pixel map')
     UNIT.write_svg(svgFile)
-    pngFile = self.outF.replace('csv', 'png')  
-
-    # read svg -> write png
-    renderPM.drawToFile(svg2rlg(svgFile), pngFile, fmt='PNG')
-    '''
-    gdsFile = self.outF.replace('csv', 'gds') 
-    #print(gdsFile) #debug 
-    if self.view == True:
-      gdspy.LayoutViewer(lib) 
-    # Export GDS
-    lib.write_gds(gdsFile)
-    '''
+    #pngFile = self.outF.replace('csv', 'png')  
+    
+    cairosvg.svg2png(url=svgFile, write_to=pngFile)
+    
+    # User must install MSYS2 if they are running this in Windows
+    # User must install https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer with Setup PATH checked
+ 

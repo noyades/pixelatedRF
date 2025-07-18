@@ -100,7 +100,7 @@ class RandomDesign:
         #[port1x, port1y, port2x, port2y, port3x, port3y, port4x, port4y]
         portPos = [0, (self.scale**2) * y_total / 2, (self.scale**2) * x_total, (self.scale**2) * y_total / 2, 0, 0, 0, 0] 
     elif self.ports == 3:
-      if self.sides != 2 and self.sides != 3:
+      if self.sides != 2 or self.sides != 3:
         raise ValueError('For a 3-port network, the number of sides must be equal to either 2 or 3.')
       elif self.sides == 2:
         x_total = (self.x_pixels / self.scale + 2 * self.launch_pixels_l) * self.pixelSize / self.scale 
@@ -126,7 +126,7 @@ class RandomDesign:
                    (self.scale**2) * x_total, (math.ceil(int(self.y_pixels / (2))) - math.floor(self.launch_pixels_w / 2)) * self.pixelSize, \
                    (math.ceil(int((self.x_pixels + 2 * self.launch_pixels_l * self.scale)/(2*self.scale)))-math.floor(self.launch_pixels_w / 2) + 0.5)*self.pixelSize * self.scale, (self.scale**2) * y_total, 0, 0]
     elif self.ports == 4:
-      if self.sides != 2 and self.sides != 4:
+      if self.sides != 2 or self.sides != 4:
         raise ValueError('For a 4-port network, the number of sides must be equal to either 2 or 4.')
       if self.sides == 2:
         x_total = (self.x_pixels / self.scale + 2 * self.launch_pixels_l) * self.pixelSize / self.scale 
@@ -186,7 +186,7 @@ class RandomDesign:
           y += 1
         x += 1
     elif self.ports ==3:
-      if self.sides != 2 and self.sides != 3:
+      if self.sides != 2 or self.sides != 3:
         raise ValueError('For a 3-port network, the number of sides must be equal to either 2 or 3.')
       elif self.sides == 2:
         # Add launches: assume a rectangle with port 1 = Southwest, 2 = Northwest, 3 = East
@@ -212,7 +212,7 @@ class RandomDesign:
           y += 1
         x += 1
     elif self.ports == 4:
-      if self.sides != 2 and self.sides != 4:
+      if self.sides != 2 or self.sides != 4:
         raise ValueError('For a 4-port network, the number of sides must be equal to either 2 or 4.')
       elif self.sides == 2:
         # Add launches: assume a rectangle with port 1 = southwest, 2 = northwest, 3 = southeast, 4 = northeast

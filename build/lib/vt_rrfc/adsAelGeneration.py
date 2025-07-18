@@ -1,5 +1,3 @@
-import os
-import platform
 class AelTools:
   def __init__(self,
                pathName: str,
@@ -57,12 +55,8 @@ class AelTools:
       f.write('de_bring_context_to_top_or_open_new_window(macroContext);\n')
       f.write('de_save_oa_design("' + self.libName + '_lib:' + self.cellName + ':layout");\n')
       f.write('de_close_all();\n')
-      if platform.system() == 'Windows':
-        f.write('dex_em_writeSimulationFiles("' + self.libName + '_lib", "' + self.cellName + '", "emSetup", "simulation/' \
-                + self.libName + '_lib/' + self.cellName + '/layout/emSetup_MoM");\n')
-      else:
-        f.write('dex_em_writeSimulationFiles("' + self.libName + '_lib", "' + self.cellName + '", "emSetup", "simulation/' \
-                + self.libName + '_lib/' + self.cellName + '/layout/emSetup_MoM");\n')
+      f.write('dex_em_writeSimulationFiles("' + self.libName + '_lib", "' + self.cellName + '", "emSetup", "simulation/' \
+              + self.libName + '_lib/' + self.cellName + '/layout/emSetup_MoM");\n')
       f.write('de_close_workspace_without_prompting();\n')
       f.write('de_exit();\n')
 
